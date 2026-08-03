@@ -11,7 +11,9 @@ import Reports from './pages/Reports';
 import Schools from './pages/Schools';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(
+    () => localStorage.getItem('token') !== null
+  );
 
   const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     if (!isAuthenticated) {
@@ -25,9 +27,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Welcome />} />
         <Route path="/portal-selection" element={<PortalSelection />} />
-        <Route 
-          path="/login" 
-          element={<Login onLogin={() => setIsAuthenticated(true)} />} 
+        <Route
+          path="/login"
+          element={<Login onLogin={() => setIsAuthenticated(true)} />}
         />
         <Route
           path="/dashboard"
@@ -77,6 +79,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

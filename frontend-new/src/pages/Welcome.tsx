@@ -1,150 +1,74 @@
 import { useNavigate } from 'react-router-dom';
+import { Utensils, ShieldCheck, ChartBar as BarChart3, Camera, ArrowRight } from 'lucide-react';
+
+const features = [
+  { icon: Camera, title: 'Face Recognition Attendance', desc: 'AI-powered automatic attendance tracking' },
+  { icon: BarChart3, title: 'Real-Time Analytics', desc: 'Live dashboards and meal consumption insights' },
+  { icon: ShieldCheck, title: 'Inventory Monitoring', desc: 'IoT-ready stock tracking with smart alerts' },
+];
 
 const Welcome = () => {
   const navigate = useNavigate();
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3a8a 0%, #7c3aed 50%, #7c2d12 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
-      {/* Decorative dots pattern */}
-      <div style={{
-        position: 'absolute',
-        top: 0,
-        right: 0,
-        width: '200px',
-        height: '100%',
-        background: 'radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px)',
-        backgroundSize: '20px 20px',
-        opacity: 0.5
-      }}></div>
-
-      {/* Logo */}
-      <div style={{
-        marginBottom: '40px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '15px'
-      }}>
-        <div style={{
-          width: '80px',
-          height: '80px',
-          background: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-          position: 'relative'
-        }}>
-          <div style={{
-            fontSize: '40px'
-          }}>🛡️</div>
-          <div style={{
-            position: 'absolute',
-            top: '-10px',
-            right: '-10px',
-            fontSize: '24px'
-          }}>📡</div>
-        </div>
-        <div style={{
-          color: 'white',
-          fontSize: '32px',
-          fontWeight: 'bold',
-          textShadow: '0 4px 10px rgba(0,0,0,0.3)'
-        }}>
-          Poshan AI
-        </div>
-      </div>
-
-      {/* Welcome Text */}
-      <h1 style={{
-        color: 'rgba(255,255,255,0.9)',
-        fontSize: '32px',
-        fontWeight: '300',
-        marginBottom: '15px',
-        textAlign: 'center',
-        textShadow: '0 2px 8px rgba(0,0,0,0.2)'
-      }}>
-        Welcome to
-      </h1>
-
-      {/* Main Title */}
-      <h2 style={{
-        color: 'white',
-        fontSize: '64px',
-        fontWeight: 'bold',
-        marginBottom: '25px',
-        textAlign: 'center',
-        textShadow: '0 4px 15px rgba(0,0,0,0.4)',
-        letterSpacing: '2px'
-      }}>
-        POSHAN AI
-      </h2>
-
-      {/* Subtitle */}
-      <p style={{
-        color: 'rgba(255,255,255,0.85)',
-        fontSize: '20px',
-        marginBottom: '60px',
-        textAlign: 'center',
-        maxWidth: '600px',
-        lineHeight: '1.6',
-        textShadow: '0 2px 8px rgba(0,0,0,0.2)'
-      }}>
-        Smart Nutrition Monitoring & Meal Management System
-      </p>
-
-      {/* Get Started Button */}
-      <button
-        onClick={() => navigate('/portal-selection')}
+    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-950 flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden">
+      {/* Decorative pattern */}
+      <div
+        className="absolute inset-0 opacity-10"
         style={{
-          background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
-          color: 'white',
-          padding: '18px 60px',
-          fontSize: '20px',
-          fontWeight: 'bold',
-          border: 'none',
-          borderRadius: '50px',
-          cursor: 'pointer',
-          transition: 'all 0.3s',
-          boxShadow: '0 10px 30px rgba(59, 130, 246, 0.4)',
-          textTransform: 'none',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px'
+          backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
+          backgroundSize: '32px 32px',
         }}
-        onMouseOver={(e) => {
-          e.currentTarget.style.transform = 'translateY(-3px)';
-          e.currentTarget.style.boxShadow = '0 15px 40px rgba(59, 130, 246, 0.5)';
-        }}
-        onMouseOut={(e) => {
-          e.currentTarget.style.transform = 'translateY(0)';
-          e.currentTarget.style.boxShadow = '0 10px 30px rgba(59, 130, 246, 0.4)';
-        }}
-      >
-        Get Started →
-      </button>
+      />
 
-      {/* Footer */}
-      <div style={{
-        position: 'absolute',
-        bottom: '30px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        color: 'rgba(255,255,255,0.5)',
-        fontSize: '14px',
-        textAlign: 'center'
-      }}>
-        Powered by AI
+      {/* Glow */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[600px] bg-primary-500/20 rounded-full blur-3xl" />
+
+      <div className="relative z-10 text-center max-w-4xl">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-4 mb-10 animate-fade-in">
+          <div className="w-20 h-20 bg-gradient-to-br from-success-400 to-primary-500 rounded-2xl flex items-center justify-center shadow-2xl">
+            <Utensils className="w-10 h-10 text-white" />
+          </div>
+        </div>
+
+        <p className="text-primary-200 text-lg font-medium mb-2 animate-fade-in">Welcome to</p>
+        <h1 className="text-6xl md:text-7xl font-extrabold text-white mb-4 tracking-tight animate-fade-in">
+          Poshan AI
+        </h1>
+        <p className="text-xl text-primary-100 max-w-2xl mx-auto mb-12 leading-relaxed animate-fade-in">
+          Smart Nutrition Monitoring &amp; Meal Management System for Karnataka Government Schools
+        </p>
+
+        {/* Feature cards */}
+        <div className="grid md:grid-cols-3 gap-5 mb-12">
+          {features.map((f, i) => {
+            const Icon = f.icon;
+            return (
+              <div
+                key={i}
+                className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/10 hover:bg-white/15 transition-all animate-fade-in"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <div className="w-12 h-12 bg-white/15 rounded-xl flex items-center justify-center mb-4 mx-auto">
+                  <Icon className="w-6 h-6 text-white" />
+                </div>
+                <h3 className="text-white font-semibold mb-1">{f.title}</h3>
+                <p className="text-sm text-primary-200">{f.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => navigate('/portal-selection')}
+          className="inline-flex items-center gap-3 bg-gradient-to-r from-success-500 to-primary-500 hover:from-success-600 hover:to-primary-600 text-white px-10 py-4 rounded-full text-lg font-semibold shadow-xl transition-all hover:scale-105 animate-fade-in"
+        >
+          Get Started
+          <ArrowRight className="w-5 h-5" />
+        </button>
+
+        <p className="mt-10 text-sm text-primary-300">Powered by AI &middot; Government of Karnataka</p>
       </div>
     </div>
   );

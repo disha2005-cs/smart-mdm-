@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { Utensils, ArrowLeft, User, Lock, Eye, EyeOff } from 'lucide-react';
 
 interface LoginProps {
   onLogin: () => void;
@@ -8,242 +9,145 @@ interface LoginProps {
 const Login = ({ onLogin }: LoginProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const portal = (location.state as any)?.portal || 'government';
-  
+  const portal = (location.state as { portal?: string } | null)?.portal ?? 'government';
+
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    rememberMe: false
+    rememberMe: false,
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.username || !formData.password) {
+      setError('Please enter both username and password');
+      return;
+    }
+    localStorage.setItem('token', 'demo-token');
+    localStorage.setItem('user', JSON.stringify({ role: portal, username: formData.username }));
     onLogin();
     navigate('/dashboard');
   };
 
+  const fillDemo = () => {
+    setFormData({
+      username: portal === 'government' ? 'GOV-001' : 'SCH-001',
+      password: 'password123',
+      rememberMe: true,
+    });
+    setError('');
+  };
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '20px',
-      position: 'relative'
-    }}>
-      {/* Back Button - Top Left */}
-      <button
-        onClick={() => navigate('/')}
-        style={{
-          position: 'absolute',
-          top: '30px',
-          left: '30px',
-          background: 'rgba(255,255,255,0.2)',
-          color: 'white',
-          border: 'none',
-          padding: '10px 20px',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          fontSize: '16px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px'
-        }}
-      >
-        ← Back
-      </button>
+    <div className="min-h-screen bg-gradient-to-br from-primary-900 via-primary-800 to-primary-950 flex items-center justify-center px-6 py-12 relative overflow-hidden">
+      <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-primary-500/20 rounded-full blur-3xl" />
 
-      {/* Title */}
-      <h1 style={{
-        color: 'white',
-        fontSize: '42px',
-        fontWeight: 'bold',
-        marginBottom: '40px',
-        textAlign: 'center',
-        textShadow: '0 4px 10px rgba(0,0,0,0.3)'
-      }}>
-        {portal === 'government' ? 'Government Login' : 'School Login'}
-      </h1>
+      <div className="relative z-10 w-full max-w-md">
+        <button
+          onClick={() => navigate('/portal-selection')}
+          className="text-primary-200 hover:text-white flex items-center gap-2 mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back
+        </button>
 
-      {/* Login Form Card */}
-      <div style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        borderRadius: '25px',
-        padding: '50px 60px',
-        width: '100%',
-        maxWidth: '450px',
-        boxShadow: '0 25px 80px rgba(0,0,0,0.4)'
-      }}>
-        <form onSubmit={handleLogin}>
-          {/* Username Field */}
-          <div style={{ marginBottom: '25px' }}>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              placeholder="Username"
-              style={{
-                width: '100%',
-                padding: '16px 20px',
-                border: '2px solid #cbd5e1',
-                borderRadius: '12px',
-                fontSize: '16px',
-                outline: 'none',
-                transition: 'all 0.3s'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#3b82f6';
-                e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#cbd5e1';
-                e.target.style.boxShadow = 'none';
-              }}
-              required
-            />
+        <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 animate-scale-in">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-gradient-to-br from-success-400 to-primary-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+              <Utensils className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-800">
+              {portal === 'government' ? 'Government Login' : 'School Login'}
+            </h1>
+            <p className="text-slate-500 text-sm mt-1">Sign in to access your dashboard</p>
           </div>
 
-          {/* Password Field */}
-          <div style={{ marginBottom: '20px' }}>
-            <input
-              type="password"
-              value={formData.password}
-              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              placeholder="Password"
-              style={{
-                width: '100%',
-                padding: '16px 20px',
-                border: '2px solid #cbd5e1',
-                borderRadius: '12px',
-                fontSize: '16px',
-                outline: 'none',
-                transition: 'all 0.3s'
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#3b82f6';
-                e.target.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#cbd5e1';
-                e.target.style.boxShadow = 'none';
-              }}
-              required
-            />
-          </div>
+          {error && (
+            <div className="bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-xl px-4 py-3 mb-4">
+              {error}
+            </div>
+          )}
 
-          {/* Remember Me */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            marginBottom: '30px'
-          }}>
-            <input
-              type="checkbox"
-              id="remember"
-              checked={formData.rememberMe}
-              onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
-              style={{
-                width: '18px',
-                height: '18px',
-                cursor: 'pointer'
-              }}
-            />
-            <label htmlFor="remember" style={{
-              fontSize: '15px',
-              color: '#4b5563',
-              cursor: 'pointer'
-            }}>
-              Remember Me
-            </label>
-          </div>
+          <form onSubmit={handleLogin} className="space-y-5">
+            {/* Username */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Employee ID</label>
+              <div className="relative">
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder={portal === 'government' ? 'GOV-001' : 'SCH-001'}
+                  className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl text-slate-800 focus:border-primary-500 focus:outline-none transition-colors"
+                  required
+                />
+              </div>
+            </div>
 
-          {/* Login Button */}
-          <button
-            type="submit"
-            style={{
-              width: '100%',
-              padding: '16px',
-              background: '#1e40af',
-              color: 'white',
-              border: 'none',
-              borderRadius: '12px',
-              fontSize: '18px',
-              fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'all 0.3s',
-              boxShadow: '0 8px 20px rgba(30, 64, 175, 0.4)',
-              textTransform: 'uppercase',
-              letterSpacing: '1px'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.background = '#1e3a8a';
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 12px 30px rgba(30, 64, 175, 0.5)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.background = '#1e40af';
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 20px rgba(30, 64, 175, 0.4)';
-            }}
-          >
-            LOGIN
-          </button>
+            {/* Password */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  placeholder="Enter your password"
+                  className="w-full pl-12 pr-12 py-3.5 border-2 border-slate-200 rounded-xl text-slate-800 focus:border-primary-500 focus:outline-none transition-colors"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+            </div>
 
-          {/* Links */}
-          <div style={{
-            marginTop: '25px',
-            textAlign: 'center'
-          }}>
-            <a href="#" style={{
-              color: '#3b82f6',
-              fontSize: '14px',
-              textDecoration: 'none',
-              display: 'block',
-              marginBottom: '10px'
-            }}>
-              Forgot Password?
-            </a>
-            <p style={{
-              fontSize: '14px',
-              color: '#6b7280'
-            }}>
-              Don't have an account?{' '}
-              <a href="#" style={{
-                color: '#3b82f6',
-                textDecoration: 'none',
-                fontWeight: 'bold'
-              }}>
-                Register
-              </a>
+            {/* Remember me */}
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="remember"
+                checked={formData.rememberMe}
+                onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
+                className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+              />
+              <label htmlFor="remember" className="text-sm text-slate-600 cursor-pointer">
+                Remember me
+              </label>
+            </div>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-primary-700 to-primary-800 hover:from-primary-800 hover:to-primary-900 text-white py-3.5 rounded-xl font-semibold shadow-lg transition-all hover:scale-[1.02]"
+            >
+              Sign In
+            </button>
+          </form>
+
+          {/* Demo credentials */}
+          <div className="mt-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
+            <p className="text-xs text-primary-700 font-semibold mb-1">Demo Credentials</p>
+            <p className="text-sm text-primary-800">
+              {portal === 'government' ? 'GOV-001' : 'SCH-001'} / password123
             </p>
+            <button
+              onClick={fillDemo}
+              className="text-xs text-primary-600 hover:text-primary-800 font-semibold mt-1"
+            >
+              Click to auto-fill &rarr;
+            </button>
           </div>
-
-          {/* Back Button */}
-          <button
-            type="button"
-            onClick={() => navigate('/')}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: '#e5e7eb',
-              color: '#4b5563',
-              border: 'none',
-              borderRadius: '10px',
-              fontSize: '15px',
-              fontWeight: '600',
-              cursor: 'pointer',
-              marginTop: '20px',
-              transition: 'all 0.3s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = '#d1d5db'}
-            onMouseOut={(e) => e.currentTarget.style.background = '#e5e7eb'}
-          >
-            ← Back
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );
