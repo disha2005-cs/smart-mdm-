@@ -18,6 +18,21 @@ export default defineConfig(({ mode }) => {
 
   return {
     plugins: [react()],
+    server: {
+      host: true,
+      allowedHosts: [
+        'hopeless-polly-unexpectably.ngrok-free.dev',
+        '.ngrok-free.dev',
+        '.ngrok.io',
+        '.ngrok.app',
+      ],
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+        },
+      },
+    },
     define: {
       'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
       'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),

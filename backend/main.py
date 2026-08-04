@@ -23,7 +23,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS setup (Hardened for Production)
+    # CORS setup (Supports localhost and ngrok)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
@@ -31,8 +31,10 @@ def create_app() -> FastAPI:
             "http://localhost:8080",
             "http://localhost:5173",
             "http://localhost:5174",
+            "https://hopeless-polly-unexpectably.ngrok-free.dev",
             "file://"
         ],
+        allow_origin_regex=r"https://.*\.ngrok-free\.(dev|app|io)",
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
