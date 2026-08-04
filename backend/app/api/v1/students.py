@@ -68,3 +68,54 @@ def read_student(
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     return student
+
+
+@router.put("/{id}", response_model=Student)
+def update_student(
+    *,
+    id: int,
+    student_in: StudentUpdate,
+    db: Session = Depends(get_db),
+    current_user = Depends(deps.get_current_school_admin)
+):
+    """
+    Update student.
+    """
+    student = db.query(StudentModel).filter(StudentModel.id == id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Verify student belongs to admin's school
+    if student.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    # Update student fields
+    update_data = student_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(student, field, value)
+    
+    db.commit()
+    db.refresh(student)
+    return student
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_student(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(deps.get_current_school_admin)
+):
+    """
+    Delete student.
+    """
+    student = db.query(StudentModel).filter(StudentModel.id == id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+    
+    # Verify student belongs to admin's school
+    if student.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    db.delete(student)
+    db.commit()
+    return None

@@ -9,6 +9,12 @@ import Attendance from './pages/Attendance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Schools from './pages/Schools';
+import FoodAllocation from './pages/FoodAllocation';
+import BudgetAllocation from './pages/BudgetAllocation';
+import Notifications from './pages/Notifications';
+import UsersRoles from './pages/UsersRoles';
+import Settings from './pages/Settings';
+import Meals from './pages/Meals';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 function App() {
@@ -63,6 +69,16 @@ function App() {
           }
         />
         <Route
+          path="/meals"
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['SCHOOL']}>
+                <Meals />
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/inventory"
           element={
             <ProtectedRoute>
@@ -88,6 +104,56 @@ function App() {
             <ProtectedRoute>
               <RoleProtectedRoute allowedRoles={['GOVERNMENT']}>
                 <Schools />
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/food-allocation"
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT']}>
+                <FoodAllocation />
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/budget-allocation"
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT']}>
+                <BudgetAllocation />
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT', 'SCHOOL']}>
+                <Notifications />
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/users"
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT']}>
+                <UsersRoles />
+              </RoleProtectedRoute>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/settings"
+          element={
+            <ProtectedRoute>
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT', 'SCHOOL']}>
+                <Settings />
               </RoleProtectedRoute>
             </ProtectedRoute>
           }

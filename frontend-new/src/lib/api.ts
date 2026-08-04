@@ -55,6 +55,7 @@ export const schoolsAPI = {
   getById: (id: number) => api.get(`/schools/${id}`),
   create: (data: any) => api.post('/schools/', data),
   update: (id: number, data: any) => api.put(`/schools/${id}`, data),
+  delete: (id: number) => api.delete(`/schools/${id}`),
 };
 
 // Inventory API

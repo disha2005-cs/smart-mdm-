@@ -3,16 +3,23 @@ import { schoolsAPI } from '../lib/api';
 
 interface School {
   id: number;
-  school_id: string;
+  udise_code: string;
   school_name: string;
   district: string;
-  block: string;
-  address: string;
-  principal_name: string;
-  contact_number: string;
-  email: string;
-  total_students: number;
+  taluk: string;
+  village: string;
+  address: string | null;
+  pin_code: string | null;
+  principal_name: string | null;
+  principal_phone: string | null;
+  email: string | null;
+  phone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
   is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
 }
 
 export function useSchool() {

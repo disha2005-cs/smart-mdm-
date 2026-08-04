@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.api import deps
 from app.database import get_db
 from app.models.school import School as SchoolModel
-from app.schemas.school import School, SchoolCreate
+from app.schemas.school import School, SchoolCreate, SchoolUpdate
 
 router = APIRouter()
 
@@ -42,3 +42,74 @@ def create_school(
     db.commit()
     db.refresh(school)
     return school
+
+
+@router.get("/{id}", response_model=School)
+def read_school(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(deps.get_current_user),
+):
+    """
+    Get school by ID.
+    """
+    school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    # School admins can only access their own school
+    if current_user.role == "SCHOOL" and current_user.school_id != id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    return school
+
+
+@router.put("/{id}", response_model=School)
+def update_school(
+    *,
+    id: int,
+    school_in: SchoolUpdate,
+    db: Session = Depends(get_db),
+    current_user=Depends(deps.get_current_gov_admin),
+):
+    """
+    Update school.
+    """
+    school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    # Check if UDISE code is being changed to one that already exists
+    if school_in.udise_code and school_in.udise_code != school.udise_code:
+        existing_school = db.query(SchoolModel).filter(
+            SchoolModel.udise_code == school_in.udise_code
+        ).first()
+        if existing_school:
+            raise HTTPException(status_code=400, detail="A school with this UDISE code already exists")
+    
+    # Update school fields
+    update_data = school_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(school, field, value)
+    
+    db.commit()
+    db.refresh(school)
+    return school
+
+
+@router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_school(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(deps.get_current_gov_admin),
+):
+    """
+    Delete school.
+    """
+    school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
+    
+    db.delete(school)
+    db.commit()
+    return None

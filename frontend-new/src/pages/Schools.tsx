@@ -5,28 +5,38 @@ import { schoolsAPI, studentsAPI } from '../lib/api';
 
 interface School {
   id: number;
-  school_id: string;
+  udise_code: string;
   school_name: string;
   district: string;
-  block: string;
-  address: string;
-  principal_name: string;
-  contact_number: string;
-  email: string;
-  total_students: number;
+  taluk: string;
+  village: string;
+  address: string | null;
+  pin_code: string | null;
+  principal_name: string | null;
+  principal_phone: string | null;
+  email: string | null;
+  phone: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  status: string;
   is_active: boolean;
+  created_at: string;
+  updated_at: string | null;
 }
 
 const emptyForm = {
-  school_id: '',
+  udise_code: '',
   school_name: '',
   district: '',
-  block: '',
+  taluk: '',
+  village: '',
   address: '',
+  pin_code: '',
   principal_name: '',
-  contact_number: '',
+  principal_phone: '',
   email: '',
-  total_students: 0,
+  phone: '',
+  status: 'Active',
 };
 
 const Schools = () => {
@@ -51,8 +61,9 @@ const Schools = () => {
       schools.filter(
         (s) =>
           s.school_name.toLowerCase().includes(q) ||
-          s.school_id.toLowerCase().includes(q) ||
-          s.district.toLowerCase().includes(q)
+          s.udise_code.toLowerCase().includes(q) ||
+          s.district.toLowerCase().includes(q) ||
+          (s.village && s.village.toLowerCase().includes(q))
       )
     );
   }, [search, schools]);
@@ -128,10 +139,10 @@ const Schools = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Delete this school and all its data?')) return;
     try {
-      await schoolsAPI.delete(Number(id));
+      await schoolsAPI.delete(id);
       await fetchSchools();
     } catch (err: any) {
       console.error('Error deleting school:', err);
