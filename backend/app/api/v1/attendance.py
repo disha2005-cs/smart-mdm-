@@ -71,7 +71,7 @@ async def capture_attendance(
         school_id=current_user.school_id,
         date=today,
         time=current_time,
-        status="Present",
+        status="PRESENT",
         marked_by=current_user.id,
         photo_url=file_path,
         confidence_score=confidence

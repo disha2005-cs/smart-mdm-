@@ -137,16 +137,17 @@ def _seed_alerts(db: Session, school: School) -> None:
         return
 
     alerts = [
-        ("LOW_STOCK", "Dal stock is approaching the reorder threshold.", "UNREAD"),
-        ("INSPECTION", "District inspection scheduled for Friday at 11:00 AM.", "UNREAD"),
-        ("HEALTH", "Two students have allergy-sensitive meal notes.", "READ"),
+        ("LOW_STOCK", "HIGH", "Dal stock is approaching the reorder threshold.", "UNREAD"),
+        ("INSPECTION", "MEDIUM", "District inspection scheduled for Friday at 11:00 AM.", "UNREAD"),
+        ("HEALTH", "LOW", "Two students have allergy-sensitive meal notes.", "READ"),
     ]
 
-    for alert_type, message, status in alerts:
+    for alert_type, severity, message, status in alerts:
         db.add(
             Alert(
                 school_id=school.id,
                 alert_type=alert_type,
+                severity=severity,
                 message=message,
                 status=status,
             )
@@ -194,7 +195,7 @@ def _seed_attendance_records(db: Session, school: School, students: list) -> Non
                 school_id=school.id,
                 date=attendance_date,
                 time=attendance_time,
-                status="Present",
+                status="PRESENT",
                 marked_by=None,
                 photo_url=None,
                 confidence_score=round(random.uniform(92.0, 98.5), 2)

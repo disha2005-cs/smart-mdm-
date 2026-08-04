@@ -11,8 +11,7 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Temporarily disabled to fix startup hang
-    # seed_demo_data()
+    # Seed data runs separately via seed.py
     yield
 
 

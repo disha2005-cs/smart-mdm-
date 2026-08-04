@@ -14,6 +14,11 @@ import {
   Clock,
   ChevronRight,
   Settings,
+  ScanFace,
+  ClipboardCheck,
+  Wheat,
+  IndianRupee,
+  UserCog,
 } from 'lucide-react';
 import { useSchool } from '../hooks/useSchool';
 
@@ -24,32 +29,33 @@ interface LayoutProps {
 /** Get menu items based on user role */
 const getMenuItems = (role: string) => {
   if (role === 'GOVERNMENT') {
+    // Government Dashboard Navigation
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-      { icon: SchoolIcon, label: 'Schools', path: '/schools' },
-      { icon: Package, label: 'Inventory', path: '/inventory' },
-      { icon: FileText, label: 'Reports', path: '/reports' },
+      { icon: SchoolIcon, label: 'School Management', path: '/schools' },
+      { icon: Wheat, label: 'Food Allocation', path: '/food-allocation' },
+      { icon: IndianRupee, label: 'Budget Allocation', path: '/budget-allocation' },
+      { icon: Package, label: 'Inventory Monitoring', path: '/inventory' },
+      { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
+      { icon: Bell, label: 'Notifications', path: '/notifications' },
+      { icon: UserCog, label: 'Users & Roles', path: '/users' },
+      { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   } else {
-    // SCHOOL role
+    // School Dashboard Navigation
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-      { icon: Users, label: 'Students', path: '/students' },
-      { icon: Camera, label: 'Attendance', path: '/attendance' },
-      { icon: Package, label: 'Inventory', path: '/inventory' },
-      { icon: FileText, label: 'Reports', path: '/reports' },
+      { icon: Users, label: 'Student Management', path: '/students' },
+      { icon: ScanFace, label: 'Face Registration', path: '/students' },
+      { icon: ClipboardCheck, label: 'Attendance', path: '/attendance' },
+      { icon: Utensils, label: 'Meal Management', path: '/meals' },
+      { icon: Package, label: 'Inventory Management', path: '/inventory' },
+      { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
+      { icon: Bell, label: 'Notifications', path: '/notifications' },
+      { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   }
 };
-
-const menuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-  { icon: Users, label: 'Students', path: '/students' },
-  { icon: Camera, label: 'Attendance', path: '/attendance' },
-  { icon: Package, label: 'Inventory', path: '/inventory' },
-  { icon: FileText, label: 'Reports', path: '/reports' },
-  { icon: SchoolIcon, label: 'Schools', path: '/schools' },
-];
 
 /** Live clock that updates every second. */
 const LiveClock = () => {
@@ -169,7 +175,10 @@ const Layout = ({ children }: LayoutProps) => {
               <span className="text-xs font-semibold text-white">System Online</span>
             </div>
             <p className="mt-1 truncate text-[11px] text-primary-300">
-              {school?.school_name ?? 'Sync active'}
+              {user.role === 'GOVERNMENT' ? 'PM POSHAN Karnataka' : school?.school_name ?? 'School Portal'}
+            </p>
+            <p className="mt-0.5 truncate text-[10px] text-primary-400">
+              {user.role === 'GOVERNMENT' ? 'Government Admin' : 'School Admin'}
             </p>
           </div>
         </div>
@@ -234,11 +243,15 @@ const Layout = ({ children }: LayoutProps) => {
 
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 py-1.5 pl-1.5 pr-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-sm font-bold text-white">
-                A
+                {user.role === 'GOVERNMENT' ? 'G' : 'S'}
               </div>
               <div className="hidden leading-tight sm:block">
-                <div className="text-sm font-semibold text-slate-800">Admin</div>
-                <div className="text-[11px] text-slate-400">Coordinator</div>
+                <div className="text-sm font-semibold text-slate-800">
+                  {user.role === 'GOVERNMENT' ? 'Government' : 'School'} Admin
+                </div>
+                <div className="text-[11px] text-slate-400">
+                  {user.role === 'GOVERNMENT' ? 'State Officer' : 'Coordinator'}
+                </div>
               </div>
             </div>
           </div>
