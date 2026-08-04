@@ -1,22 +1,32 @@
 import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { School as SchoolIcon, Plus, Search, MapPin, Phone, Mail, X, CreditCard as Edit, Users } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import type { School } from '../types';
+import { schoolsAPI, studentsAPI } from '../lib/api';
+
+interface School {
+  id: number;
+  school_id: string;
+  school_name: string;
+  district: string;
+  block: string;
+  address: string;
+  principal_name: string;
+  contact_number: string;
+  email: string;
+  total_students: number;
+  is_active: boolean;
+}
 
 const emptyForm = {
-  udise_code: '',
+  school_id: '',
   school_name: '',
   district: '',
-  taluk: '',
-  village: '',
+  block: '',
   address: '',
-  pin_code: '',
   principal_name: '',
-  principal_phone: '',
+  contact_number: '',
   email: '',
-  phone: '',
-  status: 'Active',
+  total_students: 0,
 };
 
 const Schools = () => {
@@ -41,7 +51,7 @@ const Schools = () => {
       schools.filter(
         (s) =>
           s.school_name.toLowerCase().includes(q) ||
-          s.udise_code.toLowerCase().includes(q) ||
+          s.school_id.toLowerCase().includes(q) ||
           s.district.toLowerCase().includes(q)
       )
     );
@@ -49,21 +59,32 @@ const Schools = () => {
 
   const fetchSchools = async () => {
     setLoading(true);
-    const { data, error } = await supabase.from('schools').select('*').order('school_name');
-    if (error) {
-      setError(error.message);
-    } else {
-      setSchools(data ?? []);
-      setFiltered(data ?? []);
+    try {
+      const response = await schoolsAPI.getAll();
+      const schoolData = response.data ?? [];
+      setSchools(schoolData);
+      setFiltered(schoolData);
+      
       // Fetch student counts
-      const { data: students } = await supabase.from('students').select('school_id');
-      const counts: Record<string, number> = {};
-      (students ?? []).forEach((s: { school_id: string }) => {
-        counts[s.school_id] = (counts[s.school_id] ?? 0) + 1;
-      });
-      setStudentCounts(counts);
+      try {
+        const studentsRes = await studentsAPI.getAll();
+        const students = studentsRes.data ?? [];
+        const counts: Record<string, number> = {};
+        students.forEach((s: any) => {
+          counts[s.school_id] = (counts[s.school_id] ?? 0) + 1;
+        });
+        setStudentCounts(counts);
+      } catch (err) {
+        console.error('Error fetching student counts:', err);
+      }
+      
+      setError('');
+    } catch (err: any) {
+      console.error('Error fetching schools:', err);
+      setError(err.response?.data?.detail || 'Failed to load schools');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,17 +94,16 @@ const Schools = () => {
 
     try {
       if (editing) {
-        const { error } = await supabase.from('schools').update(form).eq('id', editing.id);
-        if (error) throw error;
+        await schoolsAPI.update(editing.id, form);
       } else {
-        const { error } = await supabase.from('schools').insert(form);
-        if (error) throw error;
+        await schoolsAPI.create(form);
       }
       await fetchSchools();
       resetForm();
       setShowModal(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save school');
+    } catch (err: any) {
+      console.error('Error saving school:', err);
+      setError(err.response?.data?.detail || 'Failed to save school');
     } finally {
       setSaving(false);
     }
@@ -110,12 +130,13 @@ const Schools = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this school and all its data?')) return;
-    const { error } = await supabase.from('schools').delete().eq('id', id);
-    if (error) {
-      alert('Failed to delete: ' + error.message);
-      return;
+    try {
+      await schoolsAPI.delete(Number(id));
+      await fetchSchools();
+    } catch (err: any) {
+      console.error('Error deleting school:', err);
+      alert('Failed to delete: ' + (err.response?.data?.detail || err.message));
     }
-    await fetchSchools();
   };
 
   const resetForm = () => {

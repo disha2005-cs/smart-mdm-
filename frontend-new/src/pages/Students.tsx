@@ -12,9 +12,25 @@ import {
   Filter,
   UserRound,
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import { studentsAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
-import type { Student } from '../types';
+
+interface Student {
+  id: number;
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  date_of_birth?: string;
+  gender?: string;
+  grade?: string;
+  section?: string;
+  parent_name?: string;
+  parent_phone?: string;
+  has_allergies: boolean;
+  dietary_preferences?: string;
+  school_id: number;
+  is_active: boolean;
+}
 
 const emptyForm = {
   first_name: '',
@@ -74,19 +90,17 @@ const Students = () => {
   }, [searchParams]);
 
   const fetchStudents = async () => {
-    if (!schoolId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('students')
-      .select('*')
-      .eq('school_id', schoolId)
-      .order('created_at', { ascending: false });
-    if (error) {
-      setError(error.message);
-    } else {
-      setStudents(data ?? []);
+    try {
+      const response = await studentsAPI.getAll();
+      setStudents(response.data ?? []);
+      setError('');
+    } catch (err: any) {
+      console.error('Error fetching students:', err);
+      setError(err.response?.data?.detail || 'Failed to load students');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const grades = useMemo(() => {
@@ -127,19 +141,18 @@ const Students = () => {
       };
 
       if (editing) {
-        const { error } = await supabase.from('students').update(payload).eq('id', editing.id);
-        if (error) throw error;
+        await studentsAPI.update(editing.id, payload);
       } else {
         const studentId = `STU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        const { error } = await supabase.from('students').insert({ ...payload, student_id: studentId });
-        if (error) throw error;
+        await studentsAPI.create({ ...payload, student_id: studentId });
       }
 
       await fetchStudents();
       resetForm();
       setShowModal(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save student');
+    } catch (err: any) {
+      console.error('Error saving student:', err);
+      setError(err.response?.data?.detail || 'Failed to save student');
     } finally {
       setSaving(false);
     }
@@ -164,12 +177,13 @@ const Students = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this student?')) return;
-    const { error } = await supabase.from('students').delete().eq('id', id);
-    if (error) {
-      alert('Failed to delete: ' + error.message);
-      return;
+    try {
+      await studentsAPI.delete(Number(id));
+      await fetchStudents();
+    } catch (err: any) {
+      console.error('Error deleting student:', err);
+      alert('Failed to delete: ' + (err.response?.data?.detail || err.message));
     }
-    await fetchStudents();
   };
 
   const resetForm = () => {

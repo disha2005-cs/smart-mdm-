@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Utensils, ArrowLeft, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { authAPI } from '../lib/api';
 
 interface LoginProps {
   onLogin: () => void;
@@ -18,17 +19,49 @@ const Login = ({ onLogin }: LoginProps) => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.username || !formData.password) {
       setError('Please enter both username and password');
       return;
     }
-    localStorage.setItem('token', 'demo-token');
-    localStorage.setItem('user', JSON.stringify({ role: portal, username: formData.username }));
-    onLogin();
-    navigate('/dashboard');
+
+    setError('');
+    setLoading(true);
+
+    try {
+      const roleUpper = portal.toUpperCase();
+      
+      // Call login API
+      const response = await authAPI.login(formData.username, formData.password, roleUpper);
+      const { access_token, role } = response.data;
+
+      // Store token temporarily
+      localStorage.setItem('token', access_token);
+
+      // Get user details
+      const meResponse = await authAPI.me();
+      const userData = meResponse.data;
+
+      // Store complete user data
+      localStorage.setItem('user', JSON.stringify({
+        role,
+        employee_id: userData.employee_id,
+        school_id: userData.school_id || null,
+        name: `${userData.first_name} ${userData.last_name}`,
+        email: userData.email,
+      }));
+
+      onLogin();
+      navigate('/dashboard');
+    } catch (err: any) {
+      console.error('Login error:', err);
+      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fillDemo = () => {
@@ -56,8 +89,8 @@ const Login = ({ onLogin }: LoginProps) => {
         <div className="bg-white rounded-3xl shadow-2xl p-8 md:p-10 animate-scale-in">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-gradient-to-br from-success-400 to-primary-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
-              <Utensils className="w-8 h-8 text-white" />
+            <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg p-2">
+              <img src="/logo.jpeg" alt="Poshan AI Logo" className="w-full h-full object-contain" />
             </div>
             <h1 className="text-2xl font-bold text-slate-800">
               {portal === 'government' ? 'Government Login' : 'School Login'}
@@ -128,9 +161,10 @@ const Login = ({ onLogin }: LoginProps) => {
             {/* Submit */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-primary-700 to-primary-800 hover:from-primary-800 hover:to-primary-900 text-white py-3.5 rounded-xl font-semibold shadow-lg transition-all hover:scale-[1.02]"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-primary-700 to-primary-800 hover:from-primary-800 hover:to-primary-900 text-white py-3.5 rounded-xl font-semibold shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Sign In
+              {loading ? 'Signing In...' : 'Sign In'}
             </button>
           </form>
 

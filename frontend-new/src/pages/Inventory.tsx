@@ -2,9 +2,20 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { Package, Plus, TriangleAlert as AlertTriangle, TrendingDown, TrendingUp, X, CreditCard as Edit } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { supabase } from '../lib/supabase';
+import { inventoryAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
-import type { InventoryItem } from '../types';
+
+interface InventoryItem {
+  id: number;
+  item_name: string;
+  category: string;
+  quantity: number;
+  unit: string;
+  threshold: number;
+  supplier?: string;
+  cost_per_unit?: number;
+  school_id: number;
+}
 
 const emptyForm = {
   item_name: '',
@@ -40,20 +51,19 @@ const Inventory = () => {
   }, [selectedCategory, items]);
 
   const fetchItems = async () => {
-    if (!schoolId) return;
     setLoading(true);
-    const { data, error } = await supabase
-      .from('inventory_items')
-      .select('*')
-      .eq('school_id', schoolId)
-      .order('item_name');
-    if (error) {
-      setError(error.message);
-    } else {
-      setItems(data ?? []);
-      setFiltered(data ?? []);
+    try {
+      const response = await inventoryAPI.getAll();
+      const itemsData = response.data ?? [];
+      setItems(itemsData);
+      setFiltered(itemsData);
+      setError('');
+    } catch (err: any) {
+      console.error('Error fetching inventory:', err);
+      setError(err.response?.data?.detail || 'Failed to load inventory');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,18 +85,17 @@ const Inventory = () => {
       };
 
       if (editing) {
-        const { error } = await supabase.from('inventory_items').update(payload).eq('id', editing.id);
-        if (error) throw error;
+        await inventoryAPI.update(editing.id, payload);
       } else {
-        const { error } = await supabase.from('inventory_items').insert(payload);
-        if (error) throw error;
+        await inventoryAPI.create(payload);
       }
 
       await fetchItems();
       resetForm();
       setShowModal(false);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save item');
+    } catch (err: any) {
+      console.error('Error saving inventory item:', err);
+      setError(err.response?.data?.detail || 'Failed to save item');
     } finally {
       setSaving(false);
     }
@@ -108,12 +117,13 @@ const Inventory = () => {
 
   const handleDelete = async (id: string) => {
     if (!confirm('Delete this inventory item?')) return;
-    const { error } = await supabase.from('inventory_items').delete().eq('id', id);
-    if (error) {
-      alert('Failed to delete: ' + error.message);
-      return;
+    try {
+      await inventoryAPI.delete(Number(id));
+      await fetchItems();
+    } catch (err: any) {
+      console.error('Error deleting inventory item:', err);
+      alert('Failed to delete: ' + (err.response?.data?.detail || err.message));
     }
-    await fetchItems();
   };
 
   const resetForm = () => {

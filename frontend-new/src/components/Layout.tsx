@@ -21,6 +21,27 @@ interface LayoutProps {
   children: ReactNode;
 }
 
+/** Get menu items based on user role */
+const getMenuItems = (role: string) => {
+  if (role === 'GOVERNMENT') {
+    return [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+      { icon: SchoolIcon, label: 'Schools', path: '/schools' },
+      { icon: Package, label: 'Inventory', path: '/inventory' },
+      { icon: FileText, label: 'Reports', path: '/reports' },
+    ];
+  } else {
+    // SCHOOL role
+    return [
+      { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+      { icon: Users, label: 'Students', path: '/students' },
+      { icon: Camera, label: 'Attendance', path: '/attendance' },
+      { icon: Package, label: 'Inventory', path: '/inventory' },
+      { icon: FileText, label: 'Reports', path: '/reports' },
+    ];
+  }
+};
+
 const menuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Users, label: 'Students', path: '/students' },
@@ -67,6 +88,11 @@ const Layout = ({ children }: LayoutProps) => {
   const { school } = useSchool();
   const [query, setQuery] = useState('');
 
+  // Get user role from localStorage
+  const userStr = localStorage.getItem('user');
+  const user = userStr ? JSON.parse(userStr) : { role: 'SCHOOL' };
+  const menuItems = getMenuItems(user.role);
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -87,8 +113,8 @@ const Layout = ({ children }: LayoutProps) => {
       <aside className="flex w-64 flex-shrink-0 flex-col bg-gradient-to-b from-primary-950 via-primary-900 to-primary-800 text-white">
         {/* Logo Header */}
         <div className="flex items-center gap-3 border-b border-white/10 px-5 py-6">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary-400 to-primary-600 shadow-lg shadow-primary-950/50">
-            <Utensils className="h-6 w-6 text-white" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white shadow-lg shadow-primary-950/50 p-1.5">
+            <img src="/logo.jpeg" alt="Poshan AI Logo" className="w-full h-full object-contain" />
           </div>
           <div>
             <div className="text-base font-bold leading-tight">Poshan AI</div>

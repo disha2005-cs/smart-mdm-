@@ -1,6 +1,19 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../lib/supabase';
-import type { School } from '../types';
+import { schoolsAPI } from '../lib/api';
+
+interface School {
+  id: number;
+  school_id: string;
+  school_name: string;
+  district: string;
+  block: string;
+  address: string;
+  principal_name: string;
+  contact_number: string;
+  email: string;
+  total_students: number;
+  is_active: boolean;
+}
 
 export function useSchool() {
   const [school, setSchool] = useState<School | null>(null);
@@ -10,16 +23,25 @@ export function useSchool() {
   useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('schools')
-          .select('*')
-          .order('school_name')
-          .limit(1)
-          .maybeSingle();
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          setLoading(false);
+          return;
+        }
 
-        if (error) throw error;
-        setSchool(data as School);
+        const user = JSON.parse(userStr);
+
+        if (user.role === 'SCHOOL' && user.school_id) {
+          // School admin - get their school
+          const response = await schoolsAPI.getById(user.school_id);
+          setSchool(response.data);
+        } else if (user.role === 'GOVERNMENT') {
+          // Government admin - get first school for context
+          const response = await schoolsAPI.getAll();
+          setSchool(response.data[0] || null);
+        }
       } catch (err) {
+        console.error('Error fetching school:', err);
         setError(err instanceof Error ? err.message : 'Failed to load school');
       } finally {
         setLoading(false);

@@ -11,7 +11,8 @@ from app.core.config import settings
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    seed_demo_data()
+    # Temporarily disabled to fix startup hang
+    # seed_demo_data()
     yield
 
 
@@ -26,7 +27,13 @@ def create_app() -> FastAPI:
     # CORS setup (Hardened for Production)
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://localhost:8080"], # Strict origins
+        allow_origins=[
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "file://"
+        ],
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],

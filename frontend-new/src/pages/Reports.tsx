@@ -16,9 +16,33 @@ import {
   ResponsiveContainer,
   Legend,
 } from 'recharts';
-import { supabase } from '../lib/supabase';
+import { reportsAPI, studentsAPI, inventoryAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
-import type { DailyMeal, InventoryItem, Student } from '../types';
+
+interface DailyMeal {
+  id: number;
+  date: string;
+  total_students_present: number;
+  rice_consumed: number;
+  wheat_consumed: number;
+  dal_consumed: number;
+}
+
+interface InventoryItem {
+  id: number;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  threshold: number;
+}
+
+interface Student {
+  id: number;
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+}
 
 const reportTypes = [
   { id: 'attendance', label: 'Attendance', icon: Users, color: 'from-primary-500 to-primary-700' },
@@ -38,17 +62,33 @@ const Reports = () => {
   useEffect(() => {
     if (!schoolId) return;
     (async () => {
+      setLoading(true);
       try {
-        const [m, inv, stu] = await Promise.all([
-          supabase.from('daily_meals').select('*').eq('school_id', schoolId).order('date', { ascending: true }).limit(30),
-          supabase.from('inventory_items').select('*').eq('school_id', schoolId),
-          supabase.from('students').select('*').eq('school_id', schoolId).eq('is_active', true),
+        const [invRes, stuRes] = await Promise.all([
+          inventoryAPI.getAll(),
+          studentsAPI.getAll(),
         ]);
-        setMeals(m.data ?? []);
-        setInventory(inv.data ?? []);
-        setStudents(stu.data ?? []);
-      } catch {
-        // ignore
+        
+        setInventory(invRes.data ?? []);
+        setStudents(stuRes.data ?? []);
+        
+        // Mock meal data for now - replace with actual API when available
+        const mockMeals: DailyMeal[] = [];
+        for (let i = 0; i < 30; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - (29 - i));
+          mockMeals.push({
+            id: i,
+            date: date.toISOString().split('T')[0],
+            total_students_present: Math.floor(Math.random() * 20) + 80,
+            rice_consumed: Math.random() * 15 + 10,
+            wheat_consumed: Math.random() * 8 + 5,
+            dal_consumed: Math.random() * 5 + 3,
+          });
+        }
+        setMeals(mockMeals);
+      } catch (err) {
+        console.error('Error fetching report data:', err);
       } finally {
         setLoading(false);
       }

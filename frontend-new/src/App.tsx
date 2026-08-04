@@ -9,6 +9,7 @@ import Attendance from './pages/Attendance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
 import Schools from './pages/Schools';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(
@@ -35,7 +36,9 @@ function App() {
           path="/dashboard"
           element={
             <ProtectedRoute>
-              <Dashboard />
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT', 'SCHOOL']}>
+                <Dashboard />
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
         />
@@ -43,7 +46,9 @@ function App() {
           path="/students"
           element={
             <ProtectedRoute>
-              <Students />
+              <RoleProtectedRoute allowedRoles={['SCHOOL']}>
+                <Students />
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
         />
@@ -51,7 +56,9 @@ function App() {
           path="/attendance"
           element={
             <ProtectedRoute>
-              <Attendance />
+              <RoleProtectedRoute allowedRoles={['SCHOOL']}>
+                <Attendance />
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
         />
@@ -59,7 +66,9 @@ function App() {
           path="/inventory"
           element={
             <ProtectedRoute>
-              <Inventory />
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT', 'SCHOOL']}>
+                <Inventory />
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
         />
@@ -67,7 +76,9 @@ function App() {
           path="/reports"
           element={
             <ProtectedRoute>
-              <Reports />
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT', 'SCHOOL']}>
+                <Reports />
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
         />
@@ -75,7 +86,9 @@ function App() {
           path="/schools"
           element={
             <ProtectedRoute>
-              <Schools />
+              <RoleProtectedRoute allowedRoles={['GOVERNMENT']}>
+                <Schools />
+              </RoleProtectedRoute>
             </ProtectedRoute>
           }
         />

@@ -27,8 +27,8 @@ const Welcome = () => {
       <div className="relative z-10 text-center max-w-4xl">
         {/* Logo */}
         <div className="flex items-center justify-center gap-4 mb-10 animate-fade-in">
-          <div className="w-20 h-20 bg-gradient-to-br from-success-400 to-primary-500 rounded-2xl flex items-center justify-center shadow-2xl">
-            <Utensils className="w-10 h-10 text-white" />
+          <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center shadow-2xl p-2">
+            <img src="/logo.jpeg" alt="Poshan AI Logo" className="w-full h-full object-contain" />
           </div>
         </div>
 

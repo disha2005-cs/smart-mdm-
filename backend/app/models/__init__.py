@@ -5,3 +5,4 @@ from app.models.face_encoding import FaceEncoding
 from app.models.inventory import Inventory
 from app.models.daily_meal import DailyMeal
 from app.models.alert import Alert
+from app.models.attendance import Attendance

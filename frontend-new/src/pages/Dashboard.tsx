@@ -25,9 +25,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
+import { dashboardAPI, studentsAPI, inventoryAPI, alertsAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
-import type { Student, InventoryItem, Alert, DailyMeal } from '../types';
 
 interface Kpi {
   label: string;
@@ -38,38 +37,72 @@ interface Kpi {
   delta: { dir: 'up' | 'down' | 'flat'; text: string };
 }
 
+interface Student {
+  id: number;
+  student_id: string;
+  first_name: string;
+  last_name: string;
+  grade: string;
+  is_active: boolean;
+}
+
+interface InventoryItem {
+  id: number;
+  item_name: string;
+  quantity: number;
+  unit: string;
+  threshold: number;
+}
+
+interface Alert {
+  id: number;
+  alert_type: string;
+  message: string;
+  status: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { school, schoolId, loading: schoolLoading } = useSchool();
   const [students, setStudents] = useState<Student[]>([]);
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [meals, setMeals] = useState<DailyMeal[]>([]);
+  const [dashboardData, setDashboardData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Wait until the school lookup settles. If no school exists, stop loading
-    // and let the dashboard render with its built-in fallback figures.
+    // Wait until the school lookup settles
     if (schoolLoading) return;
-    if (!schoolId) {
-      setLoading(false);
-      return;
-    }
+    
     (async () => {
       try {
-        const [studentsRes, inventoryRes, alertsRes, mealsRes] = await Promise.all([
-          supabase.from('students').select('*').eq('school_id', schoolId).eq('is_active', true),
-          supabase.from('inventory_items').select('*').eq('school_id', schoolId),
-          supabase.from('alerts').select('*').eq('school_id', schoolId).order('created_at', { ascending: false }),
-          supabase.from('daily_meals').select('*').eq('school_id', schoolId).order('date', { ascending: true }).limit(7),
+        const userStr = localStorage.getItem('user');
+        if (!userStr) {
+          setLoading(false);
+          return;
+        }
+
+        const user = JSON.parse(userStr);
+
+        // Fetch dashboard data from appropriate endpoint
+        const dashboardCall = user.role === 'GOVERNMENT' 
+          ? dashboardAPI.government 
+          : dashboardAPI.school;
+
+        const [dashResponse, studentsRes, inventoryRes, alertsRes] = await Promise.all([
+          dashboardCall(),
+          studentsAPI.getAll().catch(() => ({ data: [] })),
+          inventoryAPI.getAll().catch(() => ({ data: [] })),
+          alertsAPI.getAll().catch(() => ({ data: [] })),
         ]);
 
+        setDashboardData(dashResponse.data);
         setStudents(studentsRes.data ?? []);
         setInventory(inventoryRes.data ?? []);
         setAlerts(alertsRes.data ?? []);
-        setMeals(mealsRes.data ?? []);
-      } catch {
-        // ignore — fall back to placeholder values below
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+        // Fallback to empty data
       } finally {
         setLoading(false);
       }
@@ -77,37 +110,24 @@ const Dashboard = () => {
   }, [schoolId, schoolLoading]);
 
   // Live values with sensible fallbacks so the dashboard always looks populated.
-  const totalStudents = students.length || 342;
-  const todayMeal = meals[meals.length - 1];
-  const presentToday = todayMeal?.total_students_present || Math.round(totalStudents * 0.93);
-  const attendanceRate = Math.round((presentToday / totalStudents) * 100);
+  const totalStudents = dashboardData?.total_students || students.length || 342;
+  const presentToday = dashboardData?.present_today || Math.round(totalStudents * 0.93);
+  const attendanceRate = dashboardData?.attendance_rate || Math.round((presentToday / totalStudents) * 100);
   const unreadAlerts = alerts.filter((a) => a.status === 'UNREAD').length;
   const lowStockItems = inventory.filter((i) => i.quantity <= i.threshold);
   const stockHealthy = inventory.length === 0 || lowStockItems.length === 0;
 
-  const chartData =
-    meals.length > 0
-      ? meals.map((m) => ({
-          date: new Date(m.date).toLocaleDateString('en-US', { weekday: 'short' }),
-          attendance: m.total_students_present,
-        }))
-      : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, i) => ({
-          date: d,
-          attendance: Math.round(totalStudents * (0.88 + i * 0.02)),
-        }));
+  const chartData = dashboardData?.attendance_trend || 
+    ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((d, i) => ({
+      date: d,
+      attendance: Math.round(totalStudents * (0.88 + i * 0.02)),
+    }));
 
-  const rawMealDist = [
-    { name: 'Rice', value: todayMeal?.rice_consumed ?? 0, color: '#2563eb' },
-    { name: 'Wheat', value: todayMeal?.wheat_consumed ?? 0, color: '#10b981' },
-    { name: 'Dal', value: todayMeal?.dal_consumed ?? 0, color: '#f59e0b' },
+  const mealDistribution = dashboardData?.meal_distribution || [
+    { name: 'Rice', value: 48, color: '#2563eb' },
+    { name: 'Wheat', value: 32, color: '#10b981' },
+    { name: 'Dal', value: 20, color: '#f59e0b' },
   ];
-  const mealDistribution = rawMealDist.some((d) => d.value > 0)
-    ? rawMealDist.filter((d) => d.value > 0)
-    : [
-        { name: 'Rice', value: 48, color: '#2563eb' },
-        { name: 'Wheat', value: 32, color: '#10b981' },
-        { name: 'Dal', value: 20, color: '#f59e0b' },
-      ];
 
   const kpis: Kpi[] = [
     {

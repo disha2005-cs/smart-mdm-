@@ -1,89 +1,120 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import Layout from '../components/Layout';
 import { Camera, Check, X, Users, UserCheck, Calendar, Play, Square, Scan } from 'lucide-react';
-import { supabase } from '../lib/supabase';
+import Webcam from 'react-webcam';
+import { attendanceAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
-import type { Student } from '../types';
 
 interface AttendanceRecord {
-  id: string;
+  id: number;
   student_id: string;
   student_name: string;
   grade: string;
-  timestamp: string;
-  confidence: number;
+  section: string;
+  time: string;
+  status: string;
+  confidence_score: number;
 }
 
 const Attendance = () => {
   const { schoolId } = useSchool();
-  const [students, setStudents] = useState<Student[]>([]);
+  const webcamRef = useRef<Webcam>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isCameraOn, setIsCameraOn] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; message: string; student?: Student; confidence?: number } | null>(null);
+  const [result, setResult] = useState<{ 
+    success: boolean; 
+    message: string; 
+    student?: any; 
+    confidence?: number 
+  } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({ present: 0, absent: 0, rate: 0, total: 0 });
 
   useEffect(() => {
-    if (!schoolId) return;
-    (async () => {
-      const { data } = await supabase
-        .from('students')
-        .select('*')
-        .eq('school_id', schoolId)
-        .eq('is_active', true)
-        .order('first_name');
-      setStudents(data ?? []);
-      setLoading(false);
-    })();
+    fetchTodayAttendance();
   }, [schoolId]);
 
-  const markedIds = new Set(records.map((r) => r.student_id));
+  const fetchTodayAttendance = async () => {
+    setLoading(true);
+    try {
+      const response = await attendanceAPI.getToday();
+      setRecords(response.data ?? []);
+      calculateStats(response.data ?? []);
+    } catch (err) {
+      console.error('Failed to fetch attendance:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateStats = (attendanceRecords: AttendanceRecord[]) => {
+    const present = attendanceRecords.length;
+    // In a real app, you'd fetch total students from the backend
+    const total = 100; // Placeholder
+    const absent = Math.max(0, total - present);
+    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
+    setStats({ present, absent, rate, total });
+  };
 
   const captureAndRecognize = async () => {
-    if (students.length === 0) return;
+    if (!webcamRef.current) {
+      setResult({
+        success: false,
+        message: 'Camera not ready. Please try again.',
+      });
+      return;
+    }
 
     setProcessing(true);
     setResult(null);
 
-    // Simulate face detection processing
-    await new Promise((resolve) => setTimeout(resolve, 1800));
+    try {
+      // Capture image from webcam
+      const imageSrc = webcamRef.current.getScreenshot();
+      
+      if (!imageSrc) {
+        setResult({
+          success: false,
+          message: 'Failed to capture image. Please try again.',
+        });
+        setProcessing(false);
+        return;
+      }
 
-    // Pick a random unmarked student
-    const unmarked = students.filter((s) => !markedIds.has(s.student_id));
-    if (unmarked.length === 0) {
+      // Convert base64 to blob
+      const blob = await fetch(imageSrc).then(r => r.blob());
+      
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', blob, 'attendance.jpg');
+
+      // Send to backend
+      const response = await attendanceAPI.capture(formData);
+      
+      setResult({
+        success: true,
+        message: response.data.message,
+        student: response.data.student,
+        confidence: response.data.confidence_score,
+      });
+
+      // Refresh attendance log
+      await fetchTodayAttendance();
+      
+    } catch (error: any) {
+      console.error('Error in face recognition:', error);
       setResult({
         success: false,
-        message: 'All students have already been marked present today!',
+        message: error.response?.data?.detail || 'Error processing image. Please try again.',
       });
+    } finally {
       setProcessing(false);
-      return;
     }
-
-    const student = unmarked[Math.floor(Math.random() * unmarked.length)];
-    const confidence = Math.round((Math.random() * 8 + 91) * 10) / 10;
-
-    const newRecord: AttendanceRecord = {
-      id: crypto.randomUUID(),
-      student_id: student.student_id,
-      student_name: `${student.first_name} ${student.last_name}`,
-      grade: student.grade ?? '-',
-      timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-      confidence,
-    };
-
-    setRecords((prev) => [newRecord, ...prev]);
-    setResult({
-      success: true,
-      message: 'Attendance marked successfully!',
-      student,
-      confidence,
-    });
-    setProcessing(false);
   };
 
-  const present = records.length;
-  const absent = students.length - present;
-  const rate = students.length > 0 ? Math.round((present / students.length) * 100) : 0;
+  const { present, absent, rate, total } = stats;
 
   if (loading) {
     return (
@@ -118,7 +149,7 @@ const Attendance = () => {
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Total Students', value: students.length, color: 'from-primary-500 to-primary-700', icon: Users },
+            { label: 'Total Students', value: total, color: 'from-primary-500 to-primary-700', icon: Users },
             { label: 'Present', value: present, color: 'from-success-500 to-success-700', icon: UserCheck },
             { label: 'Absent', value: absent, color: 'from-danger-500 to-danger-700', icon: X },
             { label: 'Attendance Rate', value: `${rate}%`, color: 'from-warning-500 to-warning-700', icon: Calendar },
@@ -149,16 +180,17 @@ const Attendance = () => {
 
             {/* Camera viewport */}
             <div className="bg-slate-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center relative">
-              {isCapturing ? (
+              {isCameraOn ? (
                 <>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="text-center">
-                      <Scan className="w-20 h-20 text-primary-400/40 mx-auto mb-3" />
-                      <p className="text-slate-400 text-sm">Camera active &middot; Point at student</p>
-                    </div>
-                  </div>
-                  {/* Scanning overlay */}
-                  <div className="absolute inset-x-0 h-0.5 bg-primary-400/60 animate-pulse" style={{ top: '50%' }} />
+                  <Webcam
+                    ref={webcamRef}
+                    audio={false}
+                    screenshotFormat="image/jpeg"
+                    className="w-full h-full object-cover"
+                    videoConstraints={{
+                      facingMode: "user"
+                    }}
+                  />
                   {/* Corner brackets */}
                   <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-primary-400 rounded-tl-lg" />
                   <div className="absolute top-4 right-4 w-8 h-8 border-r-2 border-t-2 border-primary-400 rounded-tr-lg" />
@@ -169,7 +201,7 @@ const Attendance = () => {
                     <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center">
                       <div className="bg-white rounded-2xl p-6 shadow-2xl">
                         <div className="w-14 h-14 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className="text-slate-800 font-semibold text-sm">Scanning face...</p>
+                        <p className="text-slate-800 font-semibold text-sm">Recognizing face...</p>
                       </div>
                     </div>
                   )}
@@ -179,7 +211,7 @@ const Attendance = () => {
                   <Camera className="w-16 h-16 text-slate-600 mx-auto mb-3" />
                   <p className="text-slate-400 mb-4 text-sm">Camera is off</p>
                   <button
-                    onClick={() => setIsCapturing(true)}
+                    onClick={() => setIsCameraOn(true)}
                     className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors text-sm"
                   >
                     <Play className="w-4 h-4" />
@@ -189,7 +221,7 @@ const Attendance = () => {
               )}
             </div>
 
-            {isCapturing && (
+            {isCameraOn && (
               <div className="mt-4 flex gap-3">
                 <button
                   onClick={captureAndRecognize}
@@ -197,10 +229,10 @@ const Attendance = () => {
                   className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-success-600 to-success-700 hover:from-success-700 hover:to-success-800 text-white py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
                 >
                   <Camera className="w-5 h-5" />
-                  {processing ? 'Processing...' : 'Capture & Mark'}
+                  {processing ? 'Processing...' : 'Capture & Mark Attendance'}
                 </button>
                 <button
-                  onClick={() => setIsCapturing(false)}
+                  onClick={() => setIsCameraOn(false)}
                   className="px-5 py-3 bg-danger-500 hover:bg-danger-600 text-white rounded-xl font-semibold transition-colors"
                 >
                   <Square className="w-5 h-5" />
@@ -223,7 +255,7 @@ const Attendance = () => {
                     </p>
                     {result.student && (
                       <div className="mt-2 text-sm text-slate-700">
-                        <p><strong>Student:</strong> {result.student.first_name} {result.student.last_name} ({result.student.student_id})</p>
+                        <p><strong>Student:</strong> {result.student.name} ({result.student.student_id})</p>
                         <p><strong>Grade:</strong> {result.student.grade ?? '-'} &middot; Section {result.student.section ?? '-'}</p>
                         <p><strong>Confidence:</strong> {result.confidence}%</p>
                       </div>
@@ -263,16 +295,16 @@ const Attendance = () => {
                     <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
                       <span>{record.student_id}</span>
                       <span>&middot;</span>
-                      <span>Grade {record.grade}</span>
+                      <span>Grade {record.grade} - {record.section}</span>
                       <span>&middot;</span>
-                      <span className="text-success-600 font-semibold">{record.confidence}% match</span>
+                      <span className="text-success-600 font-semibold">{record.confidence_score}% match</span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
                     <span className="inline-block px-2.5 py-1 rounded-full text-xs font-semibold bg-success-100 text-success-700">
-                      Present
+                      {record.status}
                     </span>
-                    <p className="text-xs text-slate-400 mt-1">{record.timestamp}</p>
+                    <p className="text-xs text-slate-400 mt-1">{record.time}</p>
                   </div>
                 </div>
               ))}

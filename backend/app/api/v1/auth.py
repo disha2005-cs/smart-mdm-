@@ -48,10 +48,16 @@ def read_users_me(current_user = Depends(deps.get_current_user)):
     """
     Get current user details.
     """
-    return {
+    response = {
         "employee_id": current_user.employee_id,
         "first_name": current_user.first_name,
         "last_name": current_user.last_name,
         "email": current_user.email,
         "role": current_user.role
     }
+    
+    # Add school_id for School Admins
+    if current_user.role == "SCHOOL" and hasattr(current_user, 'school_id'):
+        response["school_id"] = current_user.school_id
+    
+    return response
