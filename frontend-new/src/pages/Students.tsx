@@ -1,6 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Users, Plus, Search, CreditCard as Edit, Trash2, X, Camera } from 'lucide-react';
+import {
+  Users,
+  Plus,
+  Search,
+  CreditCard as Edit,
+  Trash2,
+  X,
+  Camera,
+  Filter,
+  UserRound,
+} from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useSchool } from '../hooks/useSchool';
 import type { Student } from '../types';
@@ -18,11 +29,28 @@ const emptyForm = {
   dietary_preferences: 'Standard',
 };
 
+// Deterministic avatar tint per student so rows feel distinct but stay on-brand.
+const avatarTints = [
+  'from-primary-400 to-primary-600',
+  'from-success-400 to-success-600',
+  'from-warning-400 to-warning-600',
+  'from-violet-400 to-violet-600',
+  'from-rose-400 to-rose-600',
+  'from-cyan-400 to-cyan-600',
+];
+const tintFor = (id: string) => {
+  let sum = 0;
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  return avatarTints[sum % avatarTints.length];
+};
+
 const Students = () => {
-  const { schoolId } = useSchool();
+  const { schoolId, loading: schoolLoading } = useSchool();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [students, setStudents] = useState<Student[]>([]);
-  const [filtered, setFiltered] = useState<Student[]>([]);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('q') ?? '');
+  const [gradeFilter, setGradeFilter] = useState('all');
+  const [genderFilter, setGenderFilter] = useState('all');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
   const [loading, setLoading] = useState(true);
@@ -31,20 +59,19 @@ const Students = () => {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    if (!schoolId) return;
+    if (schoolLoading) return;
+    if (!schoolId) {
+      setLoading(false);
+      return;
+    }
     fetchStudents();
-  }, [schoolId]);
+  }, [schoolId, schoolLoading]);
 
+  // Keep the search box in sync when the global top-bar search routes here.
   useEffect(() => {
-    const q = search.toLowerCase();
-    const result = students.filter(
-      (s) =>
-        `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
-        s.student_id.toLowerCase().includes(q) ||
-        (s.grade ?? '').toLowerCase().includes(q)
-    );
-    setFiltered(result);
-  }, [search, students]);
+    const q = searchParams.get('q');
+    if (q !== null) setSearch(q);
+  }, [searchParams]);
 
   const fetchStudents = async () => {
     if (!schoolId) return;
@@ -58,9 +85,32 @@ const Students = () => {
       setError(error.message);
     } else {
       setStudents(data ?? []);
-      setFiltered(data ?? []);
     }
     setLoading(false);
+  };
+
+  const grades = useMemo(() => {
+    const set = new Set(students.map((s) => s.grade).filter(Boolean) as string[]);
+    return Array.from(set).sort((a, b) => Number(a) - Number(b));
+  }, [students]);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return students.filter((s) => {
+      const matchesSearch =
+        `${s.first_name} ${s.last_name}`.toLowerCase().includes(q) ||
+        s.student_id.toLowerCase().includes(q) ||
+        (s.grade ?? '').toLowerCase().includes(q);
+      const matchesGrade = gradeFilter === 'all' || s.grade === gradeFilter;
+      const matchesGender = genderFilter === 'all' || s.gender === genderFilter;
+      return matchesSearch && matchesGrade && matchesGender;
+    });
+  }, [students, search, gradeFilter, genderFilter]);
+
+  const handleSearchChange = (value: string) => {
+    setSearch(value);
+    if (value) setSearchParams({ q: value }, { replace: true });
+    else setSearchParams({}, { replace: true });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -135,43 +185,49 @@ const Students = () => {
     allergies: filtered.filter((s) => s.has_allergies).length,
   };
 
+  const hasActiveFilters = gradeFilter !== 'all' || genderFilter !== 'all' || search !== '';
+
   return (
     <Layout>
-      <div className="space-y-6 animate-fade-in">
+      <div className="animate-fade-in space-y-6">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-              <Users className="w-8 h-8 text-primary-600" />
+            <h1 className="flex items-center gap-3 text-3xl font-bold text-slate-800">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary-500 to-primary-700 text-white">
+                <Users className="h-6 w-6" />
+              </span>
               Students
             </h1>
-            <p className="text-slate-500 mt-1">Manage student registrations and records</p>
+            <p className="mt-1 text-slate-500">Manage student registrations and records</p>
           </div>
           <button
             onClick={() => {
               resetForm();
               setShowModal(true);
             }}
-            className="flex items-center gap-2 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white px-6 py-3 rounded-xl font-semibold shadow-md transition-all"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 px-6 py-3 font-semibold text-white shadow-md shadow-primary-600/20 transition-all hover:from-primary-700 hover:to-primary-800"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="h-5 w-5" />
             Add Student
           </button>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           {[
             { label: 'Total Students', value: stats.total, color: 'from-primary-500 to-primary-700', icon: Users },
-            { label: 'Male', value: stats.male, color: 'from-primary-400 to-primary-600', icon: Users },
-            { label: 'Female', value: stats.female, color: 'from-success-400 to-success-600', icon: Users },
+            { label: 'Male', value: stats.male, color: 'from-primary-400 to-primary-600', icon: UserRound },
+            { label: 'Female', value: stats.female, color: 'from-success-400 to-success-600', icon: UserRound },
             { label: 'With Allergies', value: stats.allergies, color: 'from-warning-400 to-warning-600', icon: Camera },
           ].map((s, i) => {
             const Icon = s.icon;
             return (
-              <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white mb-3`}>
-                  <Icon className="w-5 h-5" />
+              <div key={i} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+                <div
+                  className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br ${s.color} text-white`}
+                >
+                  <Icon className="h-5 w-5" />
                 </div>
                 <p className="text-2xl font-bold text-slate-800">{s.value}</p>
                 <p className="text-sm text-slate-500">{s.label}</p>
@@ -180,104 +236,195 @@ const Students = () => {
           })}
         </div>
 
-        {/* Search */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search by name, student ID, or grade..."
-              className="w-full pl-12 pr-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
-            />
+        {/* Search + Filters */}
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                placeholder="Search by name, student ID, or grade..."
+                className="w-full rounded-xl border-2 border-slate-200 py-3 pl-12 pr-4 transition-colors focus:border-primary-500 focus:outline-none"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-slate-400" />
+              <select
+                value={gradeFilter}
+                onChange={(e) => setGradeFilter(e.target.value)}
+                className="rounded-xl border-2 border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition-colors focus:border-primary-500 focus:outline-none"
+                aria-label="Filter by grade"
+              >
+                <option value="all">All Grades</option>
+                {grades.map((g) => (
+                  <option key={g} value={g}>
+                    Grade {g}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={genderFilter}
+                onChange={(e) => setGenderFilter(e.target.value)}
+                className="rounded-xl border-2 border-slate-200 px-4 py-3 text-sm font-medium text-slate-700 transition-colors focus:border-primary-500 focus:outline-none"
+                aria-label="Filter by gender"
+              >
+                <option value="all">All Genders</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+              {hasActiveFilters && (
+                <button
+                  onClick={() => {
+                    setGradeFilter('all');
+                    setGenderFilter('all');
+                    handleSearchChange('');
+                  }}
+                  className="rounded-xl px-3 py-3 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Table */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-          {loading ? (
-            <div className="flex items-center justify-center h-64">
-              <div className="w-12 h-12 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Student ID</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Name</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Gender</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Grade</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Parent Contact</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Allergies</th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filtered.map((student) => (
-                    <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="border-b border-slate-200 bg-slate-50">
+                <tr>
+                  {['Student ID', 'Name', 'Gender', 'Grade', 'Parent Contact', 'Allergies', 'Actions'].map((h) => (
+                    <th
+                      key={h}
+                      className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wider text-slate-500"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i} className="animate-pulse">
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-20 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-full bg-slate-200" />
+                          <div className="h-4 w-32 rounded bg-slate-200" />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-14 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-5 w-16 rounded-full bg-slate-200" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-24 rounded bg-slate-200" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-5 w-10 rounded-full bg-slate-200" />
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="h-4 w-16 rounded bg-slate-200" />
+                      </td>
+                    </tr>
+                  ))
+                ) : filtered.length > 0 ? (
+                  filtered.map((student) => (
+                    <tr key={student.id} className="transition-colors hover:bg-slate-50">
                       <td className="px-6 py-4 text-sm font-medium text-slate-700">{student.student_id}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-sm font-semibold">
+                          <div
+                            className={`flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br ${tintFor(
+                              student.id
+                            )} text-sm font-semibold text-white`}
+                          >
                             {student.first_name.charAt(0)}
+                            {student.last_name.charAt(0)}
                           </div>
-                          <span className="text-sm font-medium text-slate-800">
-                            {student.first_name} {student.last_name}
-                          </span>
+                          <div>
+                            <span className="block text-sm font-medium text-slate-800">
+                              {student.first_name} {student.last_name}
+                            </span>
+                            <span className="text-xs text-slate-400">Section {student.section ?? '-'}</span>
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{student.gender}</td>
                       <td className="px-6 py-4">
-                        <span className="px-3 py-1 rounded-full bg-primary-50 text-primary-700 text-xs font-semibold">
+                        <span className="rounded-full bg-primary-50 px-3 py-1 text-xs font-semibold text-primary-700">
                           Grade {student.grade}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{student.parent_phone ?? '-'}</td>
                       <td className="px-6 py-4">
                         {student.has_allergies ? (
-                          <span className="text-danger-600 text-xs font-semibold bg-danger-50 px-2.5 py-1 rounded-full">Yes</span>
+                          <span className="rounded-full bg-danger-50 px-2.5 py-1 text-xs font-semibold text-danger-600">
+                            Yes
+                          </span>
                         ) : (
-                          <span className="text-slate-400 text-xs">No</span>
+                          <span className="text-xs text-slate-400">No</span>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() => handleEdit(student)}
-                            className="p-2 text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                            aria-label={`Edit ${student.first_name}`}
+                            className="rounded-lg p-2 text-primary-600 transition-colors hover:bg-primary-50"
                           >
-                            <Edit className="w-4 h-4" />
+                            <Edit className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleDelete(student.id)}
-                            className="p-2 text-danger-600 hover:bg-danger-50 rounded-lg transition-colors"
+                            aria-label={`Delete ${student.first_name}`}
+                            className="rounded-lg p-2 text-danger-600 transition-colors hover:bg-danger-50"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              {filtered.length === 0 && !loading && (
-                <div className="text-center py-12">
-                  <Users className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                  <p className="text-slate-500">No students found</p>
-                </div>
-              )}
-            </div>
-          )}
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={7}>
+                      <div className="flex flex-col items-center gap-3 py-16 text-center">
+                        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                          <Users className="h-7 w-7 text-slate-300" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-slate-600">No students found</p>
+                          <p className="text-sm text-slate-400">
+                            {hasActiveFilters
+                              ? 'Try adjusting your search or filters'
+                              : 'Add your first student to get started'}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto animate-scale-in">
-            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+        <div className="animate-fade-in fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="animate-scale-in max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+            <div className="sticky top-0 flex items-center justify-between border-b border-slate-200 bg-white px-6 py-4">
               <h2 className="text-xl font-bold text-slate-800">
                 {editing ? 'Edit Student' : 'Add New Student'}
               </h2>
@@ -286,37 +433,38 @@ const Students = () => {
                   setShowModal(false);
                   resetForm();
                 }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                className="rounded-lg p-2 transition-colors hover:bg-slate-100"
+                aria-label="Close"
               >
-                <X className="w-5 h-5" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {error && (
-              <div className="mx-6 mt-4 bg-danger-50 border border-danger-200 text-danger-700 text-sm rounded-xl px-4 py-3">
+              <div className="mx-6 mt-4 rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-700">
                 {error}
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5 p-6">
               <div className="grid grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">First Name</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">First Name</label>
                   <input
                     type="text"
                     value={form.first_name}
                     onChange={(e) => setForm({ ...form, first_name: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Last Name</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Last Name</label>
                   <input
                     type="text"
                     value={form.last_name}
                     onChange={(e) => setForm({ ...form, last_name: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                     required
                   />
                 </div>
@@ -324,20 +472,20 @@ const Students = () => {
 
               <div className="grid grid-cols-3 gap-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Date of Birth</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Date of Birth</label>
                   <input
                     type="date"
                     value={form.date_of_birth}
                     onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Gender</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Gender</label>
                   <select
                     value={form.gender}
                     onChange={(e) => setForm({ ...form, gender: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   >
                     <option>Male</option>
                     <option>Female</option>
@@ -345,14 +493,16 @@ const Students = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Grade</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Grade</label>
                   <select
                     value={form.grade}
                     onChange={(e) => setForm({ ...form, grade: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   >
                     {['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'].map((g) => (
-                      <option key={g} value={g}>{g}</option>
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -360,23 +510,25 @@ const Students = () => {
 
               <div className="grid grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Section</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Section</label>
                   <select
                     value={form.section}
                     onChange={(e) => setForm({ ...form, section: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   >
                     {['A', 'B', 'C', 'D'].map((s) => (
-                      <option key={s} value={s}>{s}</option>
+                      <option key={s} value={s}>
+                        {s}
+                      </option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Dietary Preferences</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Dietary Preferences</label>
                   <select
                     value={form.dietary_preferences}
                     onChange={(e) => setForm({ ...form, dietary_preferences: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   >
                     <option>Standard</option>
                     <option>High protein</option>
@@ -388,21 +540,21 @@ const Students = () => {
 
               <div className="grid grid-cols-2 gap-5">
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Parent Name</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Parent Name</label>
                   <input
                     type="text"
                     value={form.parent_name}
                     onChange={(e) => setForm({ ...form, parent_name: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">Parent Phone</label>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">Parent Phone</label>
                   <input
                     type="tel"
                     value={form.parent_phone}
                     onChange={(e) => setForm({ ...form, parent_phone: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
               </div>
@@ -413,9 +565,9 @@ const Students = () => {
                   id="allergies"
                   checked={form.has_allergies}
                   onChange={(e) => setForm({ ...form, has_allergies: e.target.checked })}
-                  className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
                 />
-                <label htmlFor="allergies" className="text-sm text-slate-700 font-medium cursor-pointer">
+                <label htmlFor="allergies" className="cursor-pointer text-sm font-medium text-slate-700">
                   Has food allergies
                 </label>
               </div>
@@ -424,7 +576,7 @@ const Students = () => {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-gradient-to-r from-primary-600 to-primary-700 hover:from-primary-700 hover:to-primary-800 text-white py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-primary-600 to-primary-700 py-3 font-semibold text-white transition-all hover:from-primary-700 hover:to-primary-800 disabled:opacity-50"
                 >
                   {saving ? 'Saving...' : editing ? 'Update Student' : 'Add Student'}
                 </button>
@@ -434,7 +586,7 @@ const Students = () => {
                     setShowModal(false);
                     resetForm();
                   }}
-                  className="px-8 py-3 border-2 border-slate-200 rounded-xl font-semibold text-slate-600 hover:bg-slate-50 transition-colors"
+                  className="rounded-xl border-2 border-slate-200 px-8 py-3 font-semibold text-slate-600 transition-colors hover:bg-slate-50"
                 >
                   Cancel
                 </button>
