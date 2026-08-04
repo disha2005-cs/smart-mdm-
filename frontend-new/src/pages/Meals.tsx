@@ -96,39 +96,36 @@ const Meals = () => {
         {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <KPICard
-            title="Students Present"
+            label="Students Present"
             value={mealData.attendance}
             icon={Users}
-            trend={{ value: 2.5, isPositive: true }}
-            color="blue"
+            trend="↑ 2.5% from yesterday"
+            color="info"
           />
           <KPICard
-            title="Meals Required"
+            label="Meals Required"
             value={mealData.mealsRequired}
             icon={Utensils}
-            trend={{ value: 0, isPositive: true }}
             color="purple"
           />
           <KPICard
-            title="Meals Prepared"
+            label="Meals Prepared"
             value={mealData.mealsPrepared}
             icon={Package}
-            trend={{ value: 0, isPositive: true }}
-            color="green"
+            color="success"
           />
           <KPICard
-            title="Meals Served"
+            label="Meals Served"
             value={mealData.mealsServed}
             icon={TrendingUp}
-            trend={{ value: 4.0, isPositive: true }}
-            color="orange"
+            trend="↑ 4.0% efficiency"
+            color="warning"
           />
           <KPICard
-            title="Remaining"
+            label="Remaining"
             value={mealData.remaining}
             icon={Utensils}
-            trend={{ value: 0, isPositive: true }}
-            color="slate"
+            color="primary"
           />
         </div>
 
