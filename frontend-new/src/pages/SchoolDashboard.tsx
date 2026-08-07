@@ -187,20 +187,6 @@ export default function SchoolDashboard() {
             trend={data.kpis.attendance_percentage.trend}
             color="success"
           />
-          <KPICard
-            icon={Camera}
-            label={data.kpis.ai_accuracy.label}
-            value={`${data.kpis.ai_accuracy.value}%`}
-            trend={data.kpis.ai_accuracy.trend}
-            color="purple"
-          />
-          <KPICard
-            icon={Bell}
-            label={data.kpis.government_alerts.label}
-            value={data.kpis.government_alerts.value}
-            trend={data.kpis.government_alerts.trend}
-            color="warning"
-          />
         </div>
 
         {/* Attendance Analytics */}
@@ -289,79 +275,29 @@ export default function SchoolDashboard() {
           </div>
         </div>
 
-        {/* Government Alerts & Recent Activities */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Government Alerts */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Bell className="w-6 h-6 text-warning-600" />
-              Government Alerts
-            </h2>
-            <div className="space-y-3">
-              {data.alerts.length > 0 ? (
-                data.alerts.map((alert) => (
-                  <div
-                    key={alert.id}
-                    className={`p-4 rounded-lg border-l-4 ${
-                      alert.severity === 'HIGH'
-                        ? 'bg-red-50 border-red-500'
-                        : alert.severity === 'MEDIUM'
-                        ? 'bg-yellow-50 border-yellow-500'
-                        : 'bg-blue-50 border-blue-500'
-                    }`}
-                  >
-                    <p className="text-sm font-medium text-slate-700">{alert.message}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-slate-500 text-center py-4">No pending alerts</p>
-              )}
-            </div>
-          </div>
-
-          {/* Recent Activities */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <FileText className="w-6 h-6 text-primary-600" />
-              Recent Activities
-            </h2>
-            <div className="space-y-3">
-              {data.recent_activities.map((activity, idx) => (
-                <div key={idx} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
-                  <div
-                    className={`w-2 h-2 rounded-full mt-2 ${
-                      activity.type === 'success'
-                        ? 'bg-green-500'
-                        : activity.type === 'warning'
-                        ? 'bg-yellow-500'
-                        : 'bg-blue-500'
-                    }`}
-                  ></div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-700">{activity.activity}</p>
-                    <p className="text-xs text-slate-500 mt-1">{activity.time}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
+        {/* Recent Activities */}
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {quickActions.map((action, idx) => (
-              <button
-                key={idx}
-                onClick={action.onClick}
-                className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-slate-200 hover:border-primary-500 hover:bg-primary-50 transition-all group"
-              >
-                <action.icon className="w-8 h-8 text-slate-600 group-hover:text-primary-600 mb-2" />
-                <span className="text-sm font-medium text-slate-700 group-hover:text-primary-700 text-center">
-                  {action.label}
-                </span>
-              </button>
+          <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <FileText className="w-6 h-6 text-primary-600" />
+            Recent Activities
+          </h2>
+          <div className="space-y-3">
+            {data.recent_activities.map((activity, idx) => (
+              <div key={idx} className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg">
+                <div
+                  className={`w-2 h-2 rounded-full mt-2 ${
+                    activity.type === 'success'
+                      ? 'bg-green-500'
+                      : activity.type === 'warning'
+                      ? 'bg-yellow-500'
+                      : 'bg-blue-500'
+                  }`}
+                ></div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-slate-700">{activity.activity}</p>
+                  <p className="text-xs text-slate-500 mt-1">{activity.time}</p>
+                </div>
+              </div>
             ))}
           </div>
         </div>

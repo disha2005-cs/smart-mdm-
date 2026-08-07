@@ -204,7 +204,7 @@ export default function GovernmentDashboard() {
         </div>
 
         {/* Tertiary KPIs - Row 3 */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
           <KPICard
             icon={Bell}
             label={data.kpis.notifications.label}
@@ -219,20 +219,6 @@ export default function GovernmentDashboard() {
             trend={data.kpis.reports_generated.trend}
             color="primary"
             onClick={() => navigate('/reports')}
-          />
-          <KPICard
-            icon={Cpu}
-            label={data.kpis.ai_health.label}
-            value={`${data.kpis.ai_health.value}%`}
-            trend={data.kpis.ai_health.trend}
-            color="purple"
-          />
-          <KPICard
-            icon={Wifi}
-            label={data.kpis.iot_devices.label}
-            value={data.kpis.iot_devices.value}
-            trend={data.kpis.iot_devices.trend}
-            color="info"
           />
         </div>
 
@@ -281,53 +267,7 @@ export default function GovernmentDashboard() {
         </div>
 
         {/* Attendance & Budget Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Attendance Trend */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <TrendingUp className="w-6 h-6 text-success-600" />
-              State-wide Attendance Overview
-            </h2>
-            <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-4">
-                <div className="bg-blue-50 rounded-lg p-4 text-center">
-                  <p className="text-sm text-slate-600">Total Students</p>
-                  <p className="text-2xl font-bold text-blue-600">{data.summary.total_students}</p>
-                </div>
-                <div className="bg-green-50 rounded-lg p-4 text-center">
-                  <p className="text-sm text-slate-600">Present Today</p>
-                  <p className="text-2xl font-bold text-green-600">{data.summary.attendance_today}</p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4 text-center">
-                  <p className="text-sm text-slate-600">Attendance %</p>
-                  <p className="text-2xl font-bold text-purple-600">{data.summary.attendance_percentage}%</p>
-                </div>
-              </div>
-              
-              <ResponsiveContainer width="100%" height={200}>
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Present', value: data.summary.attendance_today },
-                      { name: 'Absent', value: data.summary.total_students - data.summary.attendance_today },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    <Cell fill="#10b981" />
-                    <Cell fill="#ef4444" />
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6">
           {/* Budget & Food Allocation */}
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
             <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -459,84 +399,6 @@ export default function GovernmentDashboard() {
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* AI Monitoring & IoT Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* AI System Health */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Cpu className="w-6 h-6 text-purple-600" />
-              AI Face Recognition System
-            </h2>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-purple-50 rounded-lg">
-                <div>
-                  <p className="text-sm text-slate-600">System Health</p>
-                  <p className="text-2xl font-bold text-purple-600">{data.kpis.ai_health.value}%</p>
-                </div>
-                <div className="text-right">
-                  <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-medium px-3 py-1 rounded-full">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    Operational
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-600">Cameras Online</p>
-                  <p className="text-lg font-bold text-slate-800">0</p>
-                  <p className="text-xs text-slate-500">Active devices</p>
-                </div>
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <p className="text-xs text-slate-600">Recognition Accuracy</p>
-                  <p className="text-lg font-bold text-green-600">{data.kpis.ai_health.value}%</p>
-                  <p className="text-xs text-slate-500">Average</p>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 rounded-lg p-3">
-                <p className="text-sm font-medium text-blue-900">System Status: Optimal</p>
-                <p className="text-xs text-blue-700 mt-1">All AI services running normally</p>
-              </div>
-            </div>
-          </div>
-
-          {/* IoT Devices (Future) */}
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-              <Wifi className="w-6 h-6 text-info-600" />
-              IoT Monitoring (Coming Soon)
-            </h2>
-            <div className="flex items-center justify-center h-64 bg-slate-50 rounded-lg">
-              <div className="text-center">
-                <Wifi className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <p className="text-slate-600 font-medium">IoT Integration</p>
-                <p className="text-slate-500 text-sm mt-2">Smart weighing scales and sensors</p>
-                <p className="text-slate-500 text-sm">will be available in future updates</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Quick Actions</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {quickActions.map((action, idx) => (
-              <button
-                key={idx}
-                onClick={action.onClick}
-                className="flex flex-col items-center justify-center p-4 rounded-lg border-2 border-slate-200 hover:border-purple-500 hover:bg-purple-50 transition-all group"
-              >
-                <action.icon className="w-8 h-8 text-slate-600 group-hover:text-purple-600 mb-2" />
-                <span className="text-sm font-medium text-slate-700 group-hover:text-purple-700 text-center">
-                  {action.label}
-                </span>
-              </button>
-            ))}
           </div>
         </div>
       </div>

@@ -38,21 +38,17 @@ const getMenuItems = (role: string) => {
       { icon: Package, label: 'Inventory Monitoring', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
       { icon: Bell, label: 'Notifications', path: '/notifications' },
-      { icon: UserCog, label: 'Users & Roles', path: '/users' },
-      { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   } else {
     // School Dashboard Navigation
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
       { icon: Users, label: 'Student Management', path: '/students' },
-      { icon: ScanFace, label: 'Face Registration', path: '/students' },
       { icon: ClipboardCheck, label: 'Attendance', path: '/attendance' },
       { icon: Utensils, label: 'Meal Management', path: '/meals' },
       { icon: Package, label: 'Inventory Management', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
       { icon: Bell, label: 'Notifications', path: '/notifications' },
-      { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   }
 };
@@ -224,22 +220,6 @@ const Layout = ({ children }: LayoutProps) => {
           {/* Right cluster */}
           <div className="ml-auto flex items-center gap-3">
             <LiveClock />
-
-            <button
-              aria-label="Notifications"
-              className="relative rounded-xl border border-slate-200 p-2.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-danger-500 ring-2 ring-white" />
-            </button>
-
-            <button
-              aria-label="Settings"
-              onClick={() => navigate('/schools')}
-              className="rounded-xl border border-slate-200 p-2.5 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
 
             <div className="flex items-center gap-3 rounded-xl border border-slate-200 py-1.5 pl-1.5 pr-3">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-700 text-sm font-bold text-white">
