@@ -124,16 +124,16 @@ export default function GovernmentDashboard() {
     <Layout>
       <div className="space-y-6 animate-fade-in">
         {/* Welcome Section */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg">
+        <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-6 text-white shadow-lg">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-bold">PM POSHAN - Government Dashboard</h1>
-              <p className="text-purple-100 mt-1">Department of Public Instruction, Karnataka</p>
-              <p className="text-purple-100">State-wide Monitoring & Administration</p>
+              <p className="text-primary-100 mt-1">Department of Public Instruction, Karnataka</p>
+              <p className="text-primary-100">State-wide Monitoring & Administration</p>
             </div>
             <div className="text-right">
               <p className="text-2xl font-semibold">{currentTime.toLocaleDateString('en-IN')}</p>
-              <p className="text-purple-100">{currentTime.toLocaleTimeString('en-IN')}</p>
+              <p className="text-primary-100">{currentTime.toLocaleTimeString('en-IN')}</p>
             </div>
           </div>
         </div>
