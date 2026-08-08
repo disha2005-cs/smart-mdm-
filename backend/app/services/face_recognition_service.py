@@ -117,7 +117,7 @@ class FaceRecognitionService:
     def detect_faces_in_frame(self, frame: np.ndarray) -> List[dict]:
         """
         Detect all faces in a frame and return their encodings and bounding boxes
-        Optimized for live camera feed with preprocessing for better accuracy
+        Optimized for live camera feed with lightweight preprocessing
         
         Args:
             frame: Image frame as numpy array (BGR format)
@@ -127,38 +127,35 @@ class FaceRecognitionService:
             [{'encoding': np.ndarray, 'bbox': [x1, y1, x2, y2], 'confidence': float, 'quality': float}, ...]
         """
         try:
-            # Preprocess frame for better detection
-            # 1. Enhance brightness if too dark
+            # Lightweight preprocessing for better detection
+            # Check if frame is too dark and enhance if needed
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             avg_brightness = np.mean(gray)
             
-            if avg_brightness < 100:  # Image is too dark
-                # Apply histogram equalization to improve brightness
-                lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-                l, a, b = cv2.split(lab)
-                clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
-                l = clahe.apply(l)
-                frame = cv2.merge([l, a, b])
-                frame = cv2.cvtColor(frame, cv2.COLOR_LAB2BGR)
+            processed_frame = frame.copy()
             
-            # 2. Reduce noise
-            frame = cv2.fastNlMeansDenoisingColored(frame, None, 10, 10, 7, 21)
+            if avg_brightness < 80:  # Image is very dark
+                # Apply simple brightness enhancement (faster than CLAHE)
+                hsv = cv2.cvtColor(processed_frame, cv2.COLOR_BGR2HSV)
+                h, s, v = cv2.split(hsv)
+                v = cv2.add(v, 30)  # Increase brightness
+                hsv = cv2.merge([h, s, v])
+                processed_frame = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
             
-            # Detect faces
-            faces = self.app.get(frame)
+            # Detect faces (skip heavy noise reduction for real-time performance)
+            faces = self.app.get(processed_frame)
             
             result = []
             for face in faces:
                 # Calculate face quality score
                 bbox = face.bbox
                 face_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
-                frame_area = frame.shape[0] * frame.shape[1]
+                frame_area = processed_frame.shape[0] * processed_frame.shape[1]
                 size_ratio = face_area / frame_area
                 
                 # Quality factors:
                 # - Detection confidence (det_score)
                 # - Face size (should be at least 5% of frame)
-                # - Face alignment (pose estimation)
                 quality_score = face.det_score * (min(size_ratio * 20, 1.0))
                 
                 result.append({

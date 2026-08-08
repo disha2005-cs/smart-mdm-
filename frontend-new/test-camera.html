@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Camera Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 640px;
+            background: #000;
+            border: 2px solid #ccc;
+            border-radius: 8px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px 5px;
+            cursor: pointer;
+        }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>Camera Test Page</h1>
+    <p class="info">This page tests if your camera is accessible.</p>
+    
+    <button onclick="startCamera()">Start Camera</button>
+    <button onclick="stopCamera()">Stop Camera</button>
+    
+    <div id="status"></div>
+    <br>
+    <video id="video" autoplay playsinline muted></video>
+    
+    <div id="info"></div>
+
+    <script>
+        let stream = null;
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const info = document.getElementById('info');
+
+        // Check camera availability on load
+        checkCameraAvailability();
+
+        async function checkCameraAvailability() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const cameras = devices.filter(device => device.kind === 'videoinput');
+                
+                if (cameras.length === 0) {
+                    info.innerHTML = '<p class="error">❌ No cameras found!</p>';
+                } else {
+                    info.innerHTML = `<p class="success">✓ Found ${cameras.length} camera(s):</p>`;
+                    cameras.forEach((camera, idx) => {
+                        info.innerHTML += `<p>Camera ${idx + 1}: ${camera.label || 'Unknown'}</p>`;
+                    });
+                }
+            } catch (err) {
+                info.innerHTML = `<p class="error">❌ Error checking cameras: ${err.message}</p>`;
+            }
+        }
+
+        async function startCamera() {
+            status.innerHTML = '<p class="info">Starting camera...</p>';
+            
+            try {
+                // Request camera access
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    }
+                });
+                
+                video.srcObject = stream;
+                status.innerHTML = '<p class="success">✓ Camera started successfully!</p>';
+                
+                // Show video dimensions
+                video.onloadedmetadata = () => {
+                    status.innerHTML += `<p>Video size: ${video.videoWidth}x${video.videoHeight}</p>`;
+                };
+                
+            } catch (err) {
+                status.innerHTML = `<p class="error">❌ Error: ${err.name}</p>`;
+                status.innerHTML += `<p class="error">Message: ${err.message}</p>`;
+                
+                // Provide specific help based on error
+                if (err.name === 'NotAllowedError') {
+                    status.innerHTML += '<p class="error">Camera permission denied. Click the camera icon in the address bar and allow access.</p>';
+                } else if (err.name === 'NotFoundError') {
+                    status.innerHTML += '<p class="error">No camera found. Make sure a camera is connected.</p>';
+                } else if (err.name === 'NotReadableError') {
+                    status.innerHTML += '<p class="error">Camera is in use by another application. Close other apps and try again.</p>';
+                }
+            }
+        }
+
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+                status.innerHTML = '<p class="info">Camera stopped.</p>';
+            }
+        }
+    </script>
+</body>
+</html>

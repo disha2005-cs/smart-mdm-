@@ -103,7 +103,8 @@ async def detect_faces_in_frame(
             
             face_info = {
                 'bbox': bbox,
-                'detection_confidence': confidence
+                'detection_confidence': confidence,
+                'quality': face_data.get('quality', 0.0)  # Include quality score
             }
             
             if match_result:

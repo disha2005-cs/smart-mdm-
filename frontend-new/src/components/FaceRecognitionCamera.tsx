@@ -45,6 +45,7 @@ export default function FaceRecognitionCamera({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isCameraActiveRef = useRef<boolean>(false); // Use ref for interval closure
 
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -56,8 +57,11 @@ export default function FaceRecognitionCamera({
 
   // Start camera
   const startCamera = async () => {
+    console.log('📹 Starting camera...');
     try {
       setError('');
+      
+      console.log('📡 Requesting camera access...');
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           width: { ideal: 1280 },
@@ -65,18 +69,42 @@ export default function FaceRecognitionCamera({
           facingMode: 'user'
         }
       });
+      console.log('✓ Camera stream obtained');
+
+      // Wait a bit for React to render video element
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         streamRef.current = stream;
-        setIsCameraActive(true);
+        console.log('✓ Stream attached to video element');
         
-        // Start face detection loop
-        startFaceDetection();
+        // Wait for video to be ready before starting detection
+        videoRef.current.onloadedmetadata = () => {
+          console.log('✓ Video metadata loaded');
+          if (videoRef.current) {
+            videoRef.current.play();
+            console.log('✓ Video playing');
+            console.log(`Video dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
+            
+            // NOW set camera active AFTER video is ready
+            setIsCameraActive(true);
+            console.log('✓ Camera state set to active');
+            
+            // Small delay to ensure state updates
+            setTimeout(() => {
+              console.log('🚀 About to start face detection...');
+              startFaceDetection();
+            }, 500);
+          }
+        };
+      } else {
+        throw new Error('Video element not found');
       }
-    } catch (err) {
-      console.error('Error accessing camera:', err);
+    } catch (err: any) {
+      console.error('❌ Error accessing camera:', err);
       setError('Failed to access camera. Please ensure camera permissions are granted.');
+      setIsCameraActive(false);
     }
   };
 
@@ -101,8 +129,20 @@ export default function FaceRecognitionCamera({
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const context = canvas.getContext('2d');
+    
+    // Check if video is ready
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      console.log('Video not ready yet');
+      return null;
+    }
+    
+    // Check if video has dimensions
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.log('Video dimensions not available yet');
+      return null;
+    }
 
+    const context = canvas.getContext('2d');
     if (!context) return null;
 
     // Set canvas size to match video
@@ -118,25 +158,44 @@ export default function FaceRecognitionCamera({
 
   // Detect faces in frame
   const detectFaces = async () => {
-    if (isProcessing || !isCameraActive) return;
+    console.log('🔍 detectFaces called');
+    console.log(`  - isProcessing: ${isProcessing}`);
+    console.log(`  - isCameraActive: ${isCameraActive}`);
+    console.log(`  - isCameraActiveRef: ${isCameraActiveRef.current}`);
+    
+    if (isProcessing || !isCameraActiveRef.current) { // Use ref instead of state
+      console.log('❌ Skipping detection:', { isProcessing, isCameraActive: isCameraActiveRef.current });
+      return;
+    }
 
     // Throttle detection to every 1 second
     const now = Date.now();
-    if (now - lastDetectionTime < 1000) return;
+    const timeSinceLastDetection = now - lastDetectionTime;
+    console.log(`  - Time since last detection: ${timeSinceLastDetection}ms`);
+    
+    if (timeSinceLastDetection < 1000) {
+      console.log('⏭️ Skipping - too soon (throttled)');
+      return;
+    }
 
     setLastDetectionTime(now);
     setIsProcessing(true);
+    console.log('✅ Starting detection...');
 
     try {
       const frame = captureFrame();
       if (!frame) {
+        console.log('⚠️ No frame captured - video not ready yet');
         setIsProcessing(false);
         return;
       }
 
+      console.log('📤 Sending frame to backend for detection...');
       const response = await attendanceAPI.detectFaces(frame);
+      console.log('📥 Detection response:', response.data);
       
       if (response.data.faces_detected > 0) {
+        console.log(`✓ Detected ${response.data.faces_detected} face(s)`);
         setDetectedFaces(response.data.faces);
         
         // Auto-mark attendance if enabled and face is matched
@@ -147,25 +206,37 @@ export default function FaceRecognitionCamera({
           }
         }
       } else {
+        console.log('👤 No faces detected in frame');
         setDetectedFaces([]);
       }
     } catch (err: any) {
-      console.error('Face detection error:', err);
-      // Don't show errors during continuous detection
+      console.error('❌ Face detection error:', err);
+      console.error('Error details:', err.response?.data);
+      setError(`Detection error: ${err.response?.data?.detail || err.message}`);
     } finally {
       setIsProcessing(false);
+      console.log('✓ Detection cycle complete');
     }
   };
 
   // Start continuous face detection
   const startFaceDetection = () => {
+    console.log('🎯 Starting face detection loop...');
+    
     if (detectionIntervalRef.current) {
       clearInterval(detectionIntervalRef.current);
     }
     
+    // Run first detection immediately
+    detectFaces();
+    
+    // Then run every 1 second
     detectionIntervalRef.current = setInterval(() => {
+      console.log('⏱️ Detection interval triggered');
       detectFaces();
-    }, 1000); // Detect every 1 second
+    }, 1000);
+    
+    console.log('✓ Face detection loop started');
   };
 
   // Mark attendance
@@ -287,8 +358,8 @@ export default function FaceRecognitionCamera({
 
       {/* Camera View */}
       <div className="relative bg-gray-900 rounded-lg overflow-hidden" style={{ aspectRatio: '16/9' }}>
-        {!isCameraActive ? (
-          <div className="absolute inset-0 flex flex-col items-center justify-center">
+        {!isCameraActive && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
             <Camera className="w-16 h-16 text-gray-500 mb-4" />
             <button
               onClick={startCamera}
@@ -298,20 +369,37 @@ export default function FaceRecognitionCamera({
               Start Camera
             </button>
           </div>
-        ) : (
+        )}
+        
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            transform: 'scaleX(-1)', // Mirror the video
+            display: isCameraActive ? 'block' : 'none'
+          }}
+        />
+        <canvas
+          ref={canvasRef}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            pointerEvents: 'none',
+            transform: 'scaleX(-1)', // Mirror to match video
+            display: isCameraActive ? 'block' : 'none'
+          }}
+        />
+        
+        {isCameraActive && (
           <>
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-            />
-            <canvas
-              ref={canvasRef}
-              className="absolute inset-0 w-full h-full pointer-events-none"
-            />
-            
             {/* Processing Indicator */}
             {isProcessing && (
               <div className="absolute top-4 right-4 bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center gap-2">

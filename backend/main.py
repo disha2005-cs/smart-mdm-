@@ -51,18 +51,16 @@ def create_app() -> FastAPI:
         return response
 
     # Include routers
-    from app.api.v1 import alerts, attendance, auth, dashboard, inventory, iot, reports, schools, students, users, system
+    from app.api.v1 import alerts, attendance, auth, dashboard, inventory, iot, reports, schools, students
     app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
     app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"])
     app.include_router(schools.router, prefix=f"{settings.API_V1_STR}/schools", tags=["schools"])
-    app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
     app.include_router(students.router, prefix=f"{settings.API_V1_STR}/students", tags=["students"])
     app.include_router(attendance.router, prefix=f"{settings.API_V1_STR}/attendance", tags=["attendance"])
     app.include_router(inventory.router, prefix=f"{settings.API_V1_STR}/inventory", tags=["inventory"])
     app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
     app.include_router(iot.router, prefix=f"{settings.API_V1_STR}/iot", tags=["iot"])
     app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
-    app.include_router(system.router, prefix=f"{settings.API_V1_STR}/system", tags=["system"])
 
     # Mount static files (uploads)
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
