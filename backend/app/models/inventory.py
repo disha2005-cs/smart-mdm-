@@ -7,7 +7,7 @@ class Inventory(Base):
     __tablename__ = "inventory"
 
     id = Column(Integer, primary_key=True, index=True)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete='CASCADE'), nullable=False)
     item_name = Column(String, nullable=False)
     quantity = Column(Float, default=0.0)
     unit = Column(String, nullable=False)

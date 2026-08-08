@@ -7,7 +7,7 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id = Column(Integer, primary_key=True, index=True)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete='CASCADE'), nullable=False)
     alert_type = Column(String, nullable=False)
     severity = Column(String, default="LOW")  # HIGH, MEDIUM, LOW
     message = Column(String, nullable=False)

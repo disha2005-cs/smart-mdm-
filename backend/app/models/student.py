@@ -8,7 +8,7 @@ class Student(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     student_id = Column(String, unique=True, index=True, nullable=False)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete='CASCADE'), nullable=False)
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     date_of_birth = Column(Date)

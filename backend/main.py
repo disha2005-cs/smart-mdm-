@@ -50,7 +50,7 @@ def create_app() -> FastAPI:
         return response
 
     # Include routers
-    from app.api.v1 import alerts, attendance, auth, dashboard, inventory, iot, reports, schools, students, users
+    from app.api.v1 import alerts, attendance, auth, dashboard, inventory, iot, reports, schools, students, users, system
     app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
     app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"])
     app.include_router(schools.router, prefix=f"{settings.API_V1_STR}/schools", tags=["schools"])
@@ -61,6 +61,7 @@ def create_app() -> FastAPI:
     app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
     app.include_router(iot.router, prefix=f"{settings.API_V1_STR}/iot", tags=["iot"])
     app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
+    app.include_router(system.router, prefix=f"{settings.API_V1_STR}/system", tags=["system"])
 
     @app.get("/health")
     def health_check():

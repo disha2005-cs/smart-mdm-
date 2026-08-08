@@ -38,6 +38,7 @@ const getMenuItems = (role: string) => {
       { icon: Package, label: 'Inventory Monitoring', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
       { icon: Bell, label: 'Notifications', path: '/notifications' },
+      { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   } else {
     // School Dashboard Navigation
@@ -49,6 +50,7 @@ const getMenuItems = (role: string) => {
       { icon: Package, label: 'Inventory Management', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
       { icon: Bell, label: 'Notifications', path: '/notifications' },
+      { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   }
 };

@@ -133,12 +133,20 @@ def delete_school(
     current_user=Depends(deps.get_current_gov_admin),
 ):
     """
-    Delete school.
+    Delete school and its associated admin.
     """
+    from app.models.user import User
+    
     school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     
+    # Delete associated admin first (if exists)
+    admin = db.query(User).filter(User.school_id == id).first()
+    if admin:
+        db.delete(admin)
+    
+    # Delete the school
     db.delete(school)
     db.commit()
     return None

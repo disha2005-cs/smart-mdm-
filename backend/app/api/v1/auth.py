@@ -16,23 +16,39 @@ def login_access_token(form_data: AdminLogin, db: Session = Depends(get_db)):
     if form_data is None:
         raise HTTPException(status_code=400, detail="Missing login data")
     """
-    OAuth2 compatible token login, get an access token for future requests
+    OAuth2 compatible token login, get an access token for future requests.
+    Supports login with either employee_id or email.
     """
-    # Find user by employee_id
+    # Try to find user by employee_id first, then by email
     user = db.query(User).filter(User.employee_id == form_data.employee_id).first()
-
+    
     if not user:
-        raise HTTPException(status_code=400, detail="Incorrect employee ID or password")
+        # If not found by employee_id, try email
+        user = db.query(User).filter(User.email == form_data.employee_id).first()
+    
+    if not user:
+        raise HTTPException(status_code=400, detail="Incorrect credentials")
     
     # Verify role matches
     if user.role.value != form_data.role:
         raise HTTPException(status_code=400, detail="Invalid role for this user")
     
     if not verify_password(form_data.password, user.password_hash):
-        raise HTTPException(status_code=400, detail="Incorrect employee ID or password")
+        raise HTTPException(status_code=400, detail="Incorrect credentials")
     
     if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=400, detail="Inactive user account")
+    
+    # For school admins, check if school exists and is active
+    if user.role == UserRole.SCHOOL:
+        if not user.school_id:
+            raise HTTPException(status_code=400, detail="No school assigned to this account")
+        
+        if not user.school:
+            raise HTTPException(status_code=400, detail="Associated school not found. Please contact administrator.")
+        
+        if not user.school.is_active:
+            raise HTTPException(status_code=400, detail="School is inactive. Please contact administrator.")
 
     # Update last login
     user.last_login_at = datetime.utcnow()

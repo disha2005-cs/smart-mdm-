@@ -26,5 +26,5 @@ class School(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    admin = relationship("User", back_populates="school", uselist=False)  # One-to-One
+    admin = relationship("User", back_populates="school", uselist=False, cascade="all, delete-orphan")  # One-to-One with cascade delete
     students = relationship("Student", back_populates="school")

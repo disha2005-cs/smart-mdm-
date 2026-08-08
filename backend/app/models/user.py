@@ -27,7 +27,7 @@ class User(Base):
     
     # Role and School Assignment
     role = Column(SQLEnum(UserRole), nullable=False, index=True)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=True, unique=True)  # Only for SCHOOL role, ONE admin per school
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete='CASCADE'), nullable=True, unique=True)  # Only for SCHOOL role, ONE admin per school
     
     # Additional Info
     designation = Column(String)  # e.g., "State Officer", "School Coordinator"

@@ -3,6 +3,40 @@ import Layout from '../components/Layout';
 import { School as SchoolIcon, Plus, Search, MapPin, Phone, Mail, X, CreditCard as Edit, Users, UserPlus, Copy, CheckCircle, RefreshCw } from 'lucide-react';
 import { schoolsAPI, studentsAPI, usersAPI } from '../lib/api';
 
+// Karnataka Districts and their Taluks
+const KARNATAKA_DISTRICTS: Record<string, string[]> = {
+  "Bagalkot": ["Bagalkot", "Badami", "Bilagi", "Hunagund", "Jamkhandi", "Mudhol"],
+  "Ballari": ["Ballari", "Hagaribommanahalli", "Harapanahalli", "Hospet", "Kudligi", "Sandur", "Siruguppa"],
+  "Belagavi": ["Belagavi", "Bailhongal", "Chikodi", "Gokak", "Hukkeri", "Khanapur", "Raibag", "Ramadurga", "Saundatti", "Athani"],
+  "Bengaluru Rural": ["Devanahalli", "Doddaballapura", "Hosakote", "Nelamangala"],
+  "Bengaluru Urban": ["Anekal", "Bangalore East", "Bangalore North", "Bangalore South"],
+  "Bidar": ["Bidar", "Aurad", "Basavakalyan", "Bhalki", "Humnabad"],
+  "Chamarajanagar": ["Chamarajanagar", "Gundlupet", "Kollegal", "Yelandur"],
+  "Chikkaballapur": ["Chikkaballapur", "Bagepalli", "Chintamani", "Gauribidanur", "Gudibande", "Sidlaghatta"],
+  "Chikkamagaluru": ["Chikkamagaluru", "Ajjampura", "Kadur", "Koppa", "Mudigere", "Narasimharajapura", "Sringeri", "Tarikere"],
+  "Chitradurga": ["Chitradurga", "Challakere", "Holalkere", "Hosadurga", "Molakalmuru", "Hiriyur"],
+  "Dakshina Kannada": ["Mangaluru", "Bantwal", "Belthangady", "Puttur", "Sullia"],
+  "Davangere": ["Davangere", "Channagiri", "Harihara", "Honnali", "Jagalur", "Nyamathi"],
+  "Dharwad": ["Dharwad", "Hubli", "Kalghatgi", "Kundgol", "Navalgund"],
+  "Gadag": ["Gadag", "Mundargi", "Nargund", "Ron", "Shirhatti"],
+  "Hassan": ["Hassan", "Alur", "Arkalgud", "Arsikere", "Belur", "Channarayapatna", "Holenarasipura", "Sakleshpur"],
+  "Haveri": ["Haveri", "Byadgi", "Hanagal", "Hirekerur", "Ranebennur", "Savanur", "Shiggaon"],
+  "Kalaburagi": ["Kalaburagi", "Afzalpur", "Aland", "Chincholi", "Chitapur", "Jevargi", "Sedam"],
+  "Kodagu": ["Madikeri", "Somwarpet", "Virajpet"],
+  "Kolar": ["Kolar", "Bangarapet", "Kolar Gold Fields", "Malur", "Mulbagal", "Srinivaspur"],
+  "Koppal": ["Koppal", "Gangavathi", "Kushtagi", "Yelburga"],
+  "Mandya": ["Mandya", "Krishnarajpet", "Maddur", "Malavalli", "Nagamangala", "Pandavapura", "Shrirangapattana"],
+  "Mysuru": ["Mysuru", "Heggadadevankote", "Hunsur", "Krishnarajanagara", "Nanjanagud", "Periyapatna", "Tirumakudal Narasipura"],
+  "Raichur": ["Raichur", "Devadurga", "Lingasugur", "Manvi", "Sindhanur"],
+  "Ramanagara": ["Ramanagara", "Channapatna", "Kanakapura", "Magadi"],
+  "Shivamogga": ["Shivamogga", "Bhadravati", "Hosanagara", "Sagar", "Sorab", "Thirthahalli", "Shikaripura"],
+  "Tumakuru": ["Tumakuru", "Chiknayakanhalli", "Gubbi", "Koratagere", "Kunigal", "Madhugiri", "Pavagada", "Sira", "Tiptur", "Turuvekere"],
+  "Udupi": ["Udupi", "Kundapura", "Karkala"],
+  "Uttara Kannada": ["Karwar", "Ankola", "Bhatkal", "Haliyal", "Honnavar", "Kumta", "Mundgod", "Siddapur", "Sirsi", "Yellapur"],
+  "Vijayapura": ["Vijayapura", "Basavana Bagevadi", "Chadchan", "Indi", "Muddebihal", "Sindagi", "Talikoti"],
+  "Yadgir": ["Yadgir", "Shahapur", "Shorapur", "Surapura"]
+};
+
 interface School {
   id: number;
   udise_code: string;
@@ -69,6 +103,7 @@ const Schools = () => {
   const [createdCredentials, setCreatedCredentials] = useState({ employee_id: '', password: '' });
   const [copied, setCopied] = useState(false);
   const [studentCounts, setStudentCounts] = useState<Record<string, number>>({});
+  const [availableTaluks, setAvailableTaluks] = useState<string[]>([]);
 
   useEffect(() => {
     fetchSchools();
@@ -155,6 +190,7 @@ const Schools = () => {
       phone: school.phone ?? '',
       status: school.status,
     });
+    setAvailableTaluks(KARNATAKA_DISTRICTS[school.district] || []);
     setShowModal(true);
   };
 
@@ -173,6 +209,12 @@ const Schools = () => {
     setForm(emptyForm);
     setEditing(null);
     setError('');
+    setAvailableTaluks([]);
+  };
+
+  const handleDistrictChange = (district: string) => {
+    setForm({ ...form, district, taluk: '' });
+    setAvailableTaluks(KARNATAKA_DISTRICTS[district] || []);
   };
 
   const handleAddAdmin = (school: School) => {
@@ -487,11 +529,32 @@ const Schools = () => {
               <div className="grid grid-cols-3 gap-5">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">District</label>
-                  <input type="text" value={form.district} onChange={(e) => setForm({ ...form, district: e.target.value })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" required />
+                  <select 
+                    value={form.district} 
+                    onChange={(e) => handleDistrictChange(e.target.value)} 
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" 
+                    required
+                  >
+                    <option value="">Select District</option>
+                    {Object.keys(KARNATAKA_DISTRICTS).sort().map(district => (
+                      <option key={district} value={district}>{district}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Taluk</label>
-                  <input type="text" value={form.taluk} onChange={(e) => setForm({ ...form, taluk: e.target.value })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" required />
+                  <select 
+                    value={form.taluk} 
+                    onChange={(e) => setForm({ ...form, taluk: e.target.value })} 
+                    className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" 
+                    required
+                    disabled={!form.district}
+                  >
+                    <option value="">Select Taluk</option>
+                    {availableTaluks.map(taluk => (
+                      <option key={taluk} value={taluk}>{taluk}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Village</label>

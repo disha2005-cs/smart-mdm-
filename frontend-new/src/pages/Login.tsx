@@ -15,7 +15,6 @@ const Login = ({ onLogin }: LoginProps) => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    rememberMe: false,
   });
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -68,7 +67,6 @@ const Login = ({ onLogin }: LoginProps) => {
     setFormData({
       username: portal === 'government' ? 'GOV-001' : 'SCH-001',
       password: 'password123',
-      rememberMe: true,
     });
     setError('');
   };
@@ -107,14 +105,14 @@ const Login = ({ onLogin }: LoginProps) => {
           <form onSubmit={handleLogin} className="space-y-5">
             {/* Username */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">Employee ID</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">Employee ID or Email</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type="text"
                   value={formData.username}
                   onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                  placeholder={portal === 'government' ? 'GOV-001' : 'SCH-001'}
+                  placeholder={portal === 'government' ? 'GOV-001 or email@example.com' : 'SCH-001 or email@example.com'}
                   className="w-full pl-12 pr-4 py-3.5 border-2 border-slate-200 rounded-xl text-slate-800 focus:border-primary-500 focus:outline-none transition-colors"
                   required
                 />
@@ -142,20 +140,6 @@ const Login = ({ onLogin }: LoginProps) => {
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
               </div>
-            </div>
-
-            {/* Remember me */}
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="remember"
-                checked={formData.rememberMe}
-                onChange={(e) => setFormData({ ...formData, rememberMe: e.target.checked })}
-                className="w-4 h-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-              />
-              <label htmlFor="remember" className="text-sm text-slate-600 cursor-pointer">
-                Remember me
-              </label>
             </div>
 
             {/* Submit */}

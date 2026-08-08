@@ -9,8 +9,8 @@ class Attendance(Base):
     __tablename__ = "attendances"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.id"), nullable=False)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete='CASCADE'), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete='CASCADE'), nullable=False)
     date = Column(Date, nullable=False, index=True)
     time = Column(Time, nullable=False)
     status = Column(String, nullable=False)  # "Present" or "Absent"

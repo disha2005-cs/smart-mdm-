@@ -191,6 +191,7 @@ def update_user(
     last_name: str = None,
     email: str = None,
     phone: str = None,
+    password: str = None,
     designation: str = None,
     is_active: bool = None,
     db: Session = Depends(get_db),
@@ -214,6 +215,9 @@ def update_user(
         user.email = email
     if phone is not None:
         user.phone = phone
+    if password is not None and password.strip():
+        # Update password if provided
+        user.password_hash = get_password_hash(password)
     if designation is not None:
         user.designation = designation
     if is_active is not None:
@@ -269,4 +273,72 @@ def reset_user_password(
         "message": "Password reset successfully",
         "employee_id": user.employee_id,
         "new_password": new_password
+    }
+
+@router.post("/change-password")
+def change_own_password(
+    current_password: str,
+    new_password: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """Change own password (Any authenticated user)"""
+    from app.core.security import verify_password
+    
+    # Verify current password
+    if not verify_password(current_password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Current password is incorrect")
+    
+    # Check new password strength (minimum 6 characters)
+    if len(new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    
+    # Update password
+    current_user.password_hash = get_password_hash(new_password)
+    db.commit()
+    
+    return {
+        "message": "Password changed successfully",
+        "employee_id": current_user.employee_id
+    }
+
+@router.post("/change-email")
+def change_own_email(
+    new_email: str,
+    password: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(deps.get_current_user)
+):
+    """Change own email (Any authenticated user)"""
+    from app.core.security import verify_password
+    
+    # Verify password for security
+    if not verify_password(password, current_user.password_hash):
+        raise HTTPException(status_code=400, detail="Password is incorrect")
+    
+    # Check if email is already taken by another user
+    existing_user = db.query(User).filter(
+        User.email == new_email,
+        User.id != current_user.id
+    ).first()
+    
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Email is already registered to another account")
+    
+    # Validate email format
+    import re
+    email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    if not re.match(email_pattern, new_email):
+        raise HTTPException(status_code=400, detail="Invalid email format")
+    
+    # Update email
+    old_email = current_user.email
+    current_user.email = new_email
+    db.commit()
+    
+    return {
+        "message": "Email changed successfully",
+        "employee_id": current_user.employee_id,
+        "old_email": old_email,
+        "new_email": new_email
     }

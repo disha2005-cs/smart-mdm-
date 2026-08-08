@@ -8,7 +8,7 @@ class FaceEncoding(Base):
     __tablename__ = "face_encodings"
 
     id = Column(Integer, primary_key=True, index=True)
-    student_id = Column(Integer, ForeignKey("students.id"), unique=True, nullable=False)
+    student_id = Column(Integer, ForeignKey("students.id", ondelete='CASCADE'), unique=True, nullable=False)
     encoding = Column(Vector(512), nullable=False)
     registered_at = Column(DateTime(timezone=True), server_default=func.now())
 

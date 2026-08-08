@@ -7,7 +7,7 @@ class DailyMeal(Base):
     __tablename__ = "daily_meals"
 
     id = Column(Integer, primary_key=True, index=True)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=False)
+    school_id = Column(Integer, ForeignKey("schools.id", ondelete='CASCADE'), nullable=False)
     date = Column(Date, default=func.current_date(), nullable=False)
     total_students_present = Column(Integer, default=0)
     rice_consumed = Column(Float, default=0.0)
