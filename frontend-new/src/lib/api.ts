@@ -99,4 +99,16 @@ export const alertsAPI = {
   markRead: (id: number) => api.put(`/alerts/${id}/read`),
 };
 
+// Users API
+export const usersAPI = {
+  getAll: (role?: string) => api.get('/users', { params: { role } }),
+  getById: (id: number) => api.get(`/users/${id}`),
+  create: (data: any) => api.post('/users/', data),
+  update: (id: number, data: any) => api.put(`/users/${id}`, data),
+  delete: (id: number) => api.delete(`/users/${id}`),
+  generatePassword: () => api.post('/users/generate-password'),
+  resetPassword: (id: number, newPassword: string) => 
+    api.post(`/users/${id}/reset-password`, null, { params: { new_password: newPassword } }),
+};
+
 export default api;

@@ -1,5 +1,5 @@
 from app.models.school import School
-from app.models.admin import GovernmentAdmin, SchoolAdmin
+from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.face_encoding import FaceEncoding
 from app.models.inventory import Inventory

@@ -20,10 +20,39 @@ def read_schools(
 ):
     query = db.query(SchoolModel)
 
-    if current_user.role == "SCHOOL":
+    if current_user.role.value == "SCHOOL":
         query = query.filter(SchoolModel.id == current_user.school_id)
 
-    return query.order_by(SchoolModel.school_name.asc()).offset(skip).limit(limit).all()
+    schools = query.order_by(SchoolModel.school_name.asc()).offset(skip).limit(limit).all()
+    
+    # Enrich with admin info
+    result = []
+    for school in schools:
+        school_dict = {
+            "id": school.id,
+            "udise_code": school.udise_code,
+            "school_name": school.school_name,
+            "district": school.district,
+            "taluk": school.taluk,
+            "village": school.village,
+            "address": school.address,
+            "pin_code": school.pin_code,
+            "principal_name": school.principal_name,
+            "principal_phone": school.principal_phone,
+            "email": school.email,
+            "phone": school.phone,
+            "latitude": school.latitude,
+            "longitude": school.longitude,
+            "status": school.status,
+            "created_at": school.created_at,
+            "updated_at": school.updated_at,
+            "has_admin": school.admin is not None,
+            "admin_name": school.admin.full_name if school.admin else None,
+            "admin_employee_id": school.admin.employee_id if school.admin else None
+        }
+        result.append(school_dict)
+    
+    return result
 
 
 @router.post("/", response_model=School, status_code=status.HTTP_201_CREATED)
@@ -58,7 +87,7 @@ def read_school(
         raise HTTPException(status_code=404, detail="School not found")
     
     # School admins can only access their own school
-    if current_user.role == "SCHOOL" and current_user.school_id != id:
+    if current_user.role.value == "SCHOOL" and current_user.school_id != id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     return school

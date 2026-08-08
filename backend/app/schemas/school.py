@@ -46,6 +46,9 @@ class School(SchoolBase):
     id: int
     created_at: datetime
     updated_at: Optional[datetime] = None
+    has_admin: bool = False  # Computed field
+    admin_name: Optional[str] = None
+    admin_employee_id: Optional[str] = None
 
     class Config:
         from_attributes = True

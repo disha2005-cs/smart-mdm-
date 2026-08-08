@@ -1,14 +1,14 @@
 """
-Database Reset Script - AUTO MODE (No confirmation required)
+Database Reset Script - AUTO MODE
 This script will:
-1. Drop all tables from the Neon PostgreSQL database
+1. Drop all tables from the Neon PostgreSQL database (including old schema)
 2. Recreate all tables
 3. Create a single Government Admin account (GOV-001 / password123)
 """
 
 import os
 import sys
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from passlib.context import CryptContext
 
@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import Base
 from app.models.school import School
-from app.models.admin import GovernmentAdmin, SchoolAdmin
+from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.face_encoding import FaceEncoding
 from app.models.inventory import Inventory
@@ -43,13 +43,29 @@ def reset_database():
     engine = create_engine(DATABASE_URL)
     
     try:
-        # Drop all tables
-        print("\n🗑️  Dropping all tables...")
-        Base.metadata.drop_all(bind=engine)
-        print("✅ All tables dropped successfully")
+        # Drop all tables with CASCADE
+        print("\n🗑️  Dropping all old tables (including deprecated schema)...")
+        
+        with engine.connect() as conn:
+            # Drop old admin tables
+            conn.execute(text("DROP TABLE IF EXISTS school_admins CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS government_admins CASCADE"))
+            
+            # Drop other tables
+            conn.execute(text("DROP TABLE IF EXISTS attendance CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS face_encodings CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS alerts CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS daily_meals CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS inventory CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS students CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS schools CASCADE"))
+            conn.commit()
+        
+        print("✅ All old tables dropped successfully")
         
         # Recreate all tables
-        print("\n🔨 Creating fresh tables...")
+        print("\n🔨 Creating fresh tables with new schema...")
         Base.metadata.create_all(bind=engine)
         print("✅ All tables created successfully")
         
@@ -62,7 +78,7 @@ def reset_database():
             print("\n👤 Creating Government Admin account...")
             hashed_password = pwd_context.hash("password123")
             
-            gov_admin = GovernmentAdmin(
+            gov_admin = User(
                 employee_id="GOV-001",
                 first_name="Government",
                 last_name="Administrator",
@@ -70,6 +86,7 @@ def reset_database():
                 phone="1800-123-4567",
                 designation="State Officer - PM POSHAN Karnataka",
                 password_hash=hashed_password,
+                role=UserRole.GOVERNMENT,
                 is_active=True
             )
             
@@ -91,7 +108,7 @@ def reset_database():
             print("\n📝 Next steps:")
             print("   1. Start the backend server: python main.py")
             print("   2. Login with the credentials above")
-            print("   3. Add schools and school admins through the dashboard")
+            print("   3. Add schools and school admins through the API")
             
             return True
             

@@ -17,7 +17,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from app.database import Base, get_db
 from app.models.school import School
-from app.models.admin import GovernmentAdmin, SchoolAdmin
+from app.models.user import User, UserRole
 from app.models.student import Student
 from app.models.face_encoding import FaceEncoding
 from app.models.inventory import Inventory
@@ -50,10 +50,24 @@ def reset_database():
     engine = create_engine(DATABASE_URL)
     
     try:
-        # Drop all tables
+        # Drop all tables with CASCADE
         print("\n🗑️  Dropping all tables...")
-        Base.metadata.drop_all(bind=engine)
-        print("✅ All tables dropped successfully")
+        
+        # First, drop old tables that might have dependencies
+        with engine.connect() as conn:
+            conn.execute(text("DROP TABLE IF EXISTS school_admins CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS government_admins CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS attendance CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS face_encodings CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS alerts CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS daily_meals CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS inventory CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS students CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS users CASCADE"))
+            conn.execute(text("DROP TABLE IF EXISTS schools CASCADE"))
+            conn.commit()
+        
+        print("✅ All old tables dropped successfully")
         
         # Recreate all tables
         print("\n🔨 Creating fresh tables...")
@@ -69,7 +83,7 @@ def reset_database():
             print("\n👤 Creating Government Admin account...")
             hashed_password = pwd_context.hash("password123")
             
-            gov_admin = GovernmentAdmin(
+            gov_admin = User(
                 employee_id="GOV-001",
                 first_name="Government",
                 last_name="Administrator",
@@ -77,6 +91,7 @@ def reset_database():
                 phone="1800-123-4567",
                 designation="State Officer - PM POSHAN Karnataka",
                 password_hash=hashed_password,
+                role=UserRole.GOVERNMENT,
                 is_active=True
             )
             

@@ -27,7 +27,7 @@ class User(Base):
     
     # Role and School Assignment
     role = Column(SQLEnum(UserRole), nullable=False, index=True)
-    school_id = Column(Integer, ForeignKey("schools.id"), nullable=True)  # Only for SCHOOL role
+    school_id = Column(Integer, ForeignKey("schools.id"), nullable=True, unique=True)  # Only for SCHOOL role, ONE admin per school
     
     # Additional Info
     designation = Column(String)  # e.g., "State Officer", "School Coordinator"
@@ -42,7 +42,11 @@ class User(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    school = relationship("School", back_populates="admins")
+    school = relationship("School", back_populates="admin")
+    
+    @property
+    def full_name(self):
+        return f"{self.first_name} {self.last_name}"
     
     def __repr__(self):
         return f"<User {self.employee_id} ({self.role})>"
