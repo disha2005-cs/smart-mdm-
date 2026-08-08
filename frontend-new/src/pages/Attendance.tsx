@@ -1,9 +1,9 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { Camera, Check, X, Users, UserCheck, Calendar, Play, Square, Scan } from 'lucide-react';
-import Webcam from 'react-webcam';
+import { Users, UserCheck, Calendar, X, RefreshCw } from 'lucide-react';
 import { attendanceAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
+import FaceRecognitionCamera from '../components/FaceRecognitionCamera';
 
 interface AttendanceRecord {
   id: number;
@@ -18,22 +18,13 @@ interface AttendanceRecord {
 
 const Attendance = () => {
   const { schoolId } = useSchool();
-  const webcamRef = useRef<Webcam>(null);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [isCameraOn, setIsCameraOn] = useState(false);
-  const [processing, setProcessing] = useState(false);
-  const [result, setResult] = useState<{ 
-    success: boolean; 
-    message: string; 
-    student?: any; 
-    confidence?: number 
-  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ present: 0, absent: 0, rate: 0, total: 0 });
 
   useEffect(() => {
     fetchTodayAttendance();
+    fetchStatistics();
   }, [schoolId]);
 
   const fetchTodayAttendance = async () => {
@@ -41,7 +32,6 @@ const Attendance = () => {
     try {
       const response = await attendanceAPI.getToday();
       setRecords(response.data ?? []);
-      calculateStats(response.data ?? []);
     } catch (err) {
       console.error('Failed to fetch attendance:', err);
     } finally {
@@ -49,69 +39,24 @@ const Attendance = () => {
     }
   };
 
-  const calculateStats = (attendanceRecords: AttendanceRecord[]) => {
-    const present = attendanceRecords.length;
-    // In a real app, you'd fetch total students from the backend
-    const total = 100; // Placeholder
-    const absent = Math.max(0, total - present);
-    const rate = total > 0 ? Math.round((present / total) * 100) : 0;
-    setStats({ present, absent, rate, total });
+  const fetchStatistics = async () => {
+    try {
+      const response = await attendanceAPI.getTodayStatistics();
+      setStats({
+        present: response.data.present,
+        absent: response.data.absent,
+        rate: response.data.attendance_percentage,
+        total: response.data.total_students
+      });
+    } catch (err) {
+      console.error('Failed to fetch statistics:', err);
+    }
   };
 
-  const captureAndRecognize = async () => {
-    if (!webcamRef.current) {
-      setResult({
-        success: false,
-        message: 'Camera not ready. Please try again.',
-      });
-      return;
-    }
-
-    setProcessing(true);
-    setResult(null);
-
-    try {
-      // Capture image from webcam
-      const imageSrc = webcamRef.current.getScreenshot();
-      
-      if (!imageSrc) {
-        setResult({
-          success: false,
-          message: 'Failed to capture image. Please try again.',
-        });
-        setProcessing(false);
-        return;
-      }
-
-      // Convert base64 to blob
-      const blob = await fetch(imageSrc).then(r => r.blob());
-      
-      // Create FormData
-      const formData = new FormData();
-      formData.append('file', blob, 'attendance.jpg');
-
-      // Send to backend
-      const response = await attendanceAPI.capture(formData);
-      
-      setResult({
-        success: true,
-        message: response.data.message,
-        student: response.data.student,
-        confidence: response.data.confidence_score,
-      });
-
-      // Refresh attendance log
-      await fetchTodayAttendance();
-      
-    } catch (error: any) {
-      console.error('Error in face recognition:', error);
-      setResult({
-        success: false,
-        message: error.response?.data?.detail || 'Error processing image. Please try again.',
-      });
-    } finally {
-      setProcessing(false);
-    }
+  const handleAttendanceMarked = () => {
+    // Refresh data after successful attendance marking
+    fetchTodayAttendance();
+    fetchStatistics();
   };
 
   const { present, absent, rate, total } = stats;
@@ -133,16 +78,28 @@ const Attendance = () => {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-              <Camera className="w-8 h-8 text-primary-600" />
-              Attendance
+              <Users className="w-8 h-8 text-primary-600" />
+              Face Recognition Attendance
             </h1>
-            <p className="text-slate-500 mt-1">AI-powered face recognition attendance tracking</p>
+            <p className="text-slate-500 mt-1">AI-powered real-time attendance tracking</p>
           </div>
-          <div className="text-right">
-            <p className="text-sm text-slate-400">Today</p>
-            <p className="text-lg font-semibold text-slate-700">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-            </p>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                fetchTodayAttendance();
+                fetchStatistics();
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Refresh
+            </button>
+            <div className="text-right">
+              <p className="text-sm text-slate-400">Today</p>
+              <p className="text-lg font-semibold text-slate-700">
+                {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -167,114 +124,13 @@ const Attendance = () => {
           })}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          {/* Camera / Capture */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800">Face Recognition</h3>
-              <div className="flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${isCapturing ? 'bg-success-500 animate-pulse' : 'bg-slate-300'}`} />
-                <span className="text-sm text-slate-500">{isCapturing ? 'Active' : 'Inactive'}</span>
-              </div>
-            </div>
-
-            {/* Camera viewport */}
-            <div className="bg-slate-900 rounded-xl overflow-hidden aspect-video flex items-center justify-center relative">
-              {isCameraOn ? (
-                <>
-                  <Webcam
-                    ref={webcamRef}
-                    audio={false}
-                    screenshotFormat="image/jpeg"
-                    className="w-full h-full object-cover"
-                    videoConstraints={{
-                      facingMode: "user"
-                    }}
-                  />
-                  {/* Corner brackets */}
-                  <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-primary-400 rounded-tl-lg" />
-                  <div className="absolute top-4 right-4 w-8 h-8 border-r-2 border-t-2 border-primary-400 rounded-tr-lg" />
-                  <div className="absolute bottom-4 left-4 w-8 h-8 border-l-2 border-b-2 border-primary-400 rounded-bl-lg" />
-                  <div className="absolute bottom-4 right-4 w-8 h-8 border-r-2 border-b-2 border-primary-400 rounded-br-lg" />
-
-                  {processing && (
-                    <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center">
-                      <div className="bg-white rounded-2xl p-6 shadow-2xl">
-                        <div className="w-14 h-14 border-4 border-primary-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                        <p className="text-slate-800 font-semibold text-sm">Recognizing face...</p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center p-8">
-                  <Camera className="w-16 h-16 text-slate-600 mx-auto mb-3" />
-                  <p className="text-slate-400 mb-4 text-sm">Camera is off</p>
-                  <button
-                    onClick={() => setIsCameraOn(true)}
-                    className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-colors text-sm"
-                  >
-                    <Play className="w-4 h-4" />
-                    Start Camera
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {isCameraOn && (
-              <div className="mt-4 flex gap-3">
-                <button
-                  onClick={captureAndRecognize}
-                  disabled={processing}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-success-600 to-success-700 hover:from-success-700 hover:to-success-800 text-white py-3 rounded-xl font-semibold transition-all disabled:opacity-50"
-                >
-                  <Camera className="w-5 h-5" />
-                  {processing ? 'Processing...' : 'Capture & Mark Attendance'}
-                </button>
-                <button
-                  onClick={() => setIsCameraOn(false)}
-                  className="px-5 py-3 bg-danger-500 hover:bg-danger-600 text-white rounded-xl font-semibold transition-colors"
-                >
-                  <Square className="w-5 h-5" />
-                </button>
-              </div>
-            )}
-
-            {/* Result */}
-            {result && (
-              <div className={`mt-4 p-4 rounded-xl border-2 animate-scale-in ${result.success ? 'bg-success-50 border-success-200' : 'bg-danger-50 border-danger-200'}`}>
-                <div className="flex items-start gap-3">
-                  {result.success ? (
-                    <Check className="w-6 h-6 text-success-600 flex-shrink-0 mt-0.5" />
-                  ) : (
-                    <X className="w-6 h-6 text-danger-600 flex-shrink-0 mt-0.5" />
-                  )}
-                  <div>
-                    <p className={`font-semibold ${result.success ? 'text-success-800' : 'text-danger-800'}`}>
-                      {result.message}
-                    </p>
-                    {result.student && (
-                      <div className="mt-2 text-sm text-slate-700">
-                        <p><strong>Student:</strong> {result.student.name} ({result.student.student_id})</p>
-                        <p><strong>Grade:</strong> {result.student.grade ?? '-'} &middot; Section {result.student.section ?? '-'}</p>
-                        <p><strong>Confidence:</strong> {result.confidence}%</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Instructions */}
-            <div className="mt-4 p-4 bg-primary-50 rounded-xl">
-              <h4 className="font-semibold text-primary-900 mb-2 text-sm">Instructions</h4>
-              <ul className="text-xs text-primary-800 space-y-1">
-                <li>&middot; Ensure the student's face is clearly visible and well-lit</li>
-                <li>&middot; Look directly at the camera</li>
-                <li>&middot; Click "Capture &amp; Mark" to record attendance</li>
-                <li>&middot; Each student is marked only once per session</li>
-              </ul>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Face Recognition Camera */}
+          <div className="lg:col-span-1">
+            <FaceRecognitionCamera 
+              onAttendanceMarked={handleAttendanceMarked}
+              autoMark={false}
+            />
           </div>
 
           {/* Attendance log */}

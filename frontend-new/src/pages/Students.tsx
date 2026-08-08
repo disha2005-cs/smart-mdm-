@@ -42,7 +42,7 @@ const emptyForm = {
   parent_name: '',
   parent_phone: '',
   has_allergies: false,
-  dietary_preferences: 'Standard',
+  photo: null as File | null,
 };
 
 // Deterministic avatar tint per student so rows feel distinct but stay on-brand.
@@ -73,6 +73,7 @@ const Students = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState(emptyForm);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
 
   useEffect(() => {
     if (schoolLoading) return;
@@ -82,6 +83,19 @@ const Students = () => {
     }
     fetchStudents();
   }, [schoolId, schoolLoading]);
+
+  // Auto-open modal when action=add parameter is present
+  useEffect(() => {
+    const action = searchParams.get('action');
+    if (action === 'add') {
+      resetForm();
+      setShowModal(true);
+      // Clear the action parameter from URL
+      const newParams = new URLSearchParams(searchParams);
+      newParams.delete('action');
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [searchParams]);
 
   // Keep the search box in sync when the global top-bar search routes here.
   useEffect(() => {
@@ -170,7 +184,6 @@ const Students = () => {
       parent_name: student.parent_name ?? '',
       parent_phone: student.parent_phone ?? '',
       has_allergies: student.has_allergies,
-      dietary_preferences: student.dietary_preferences ?? 'Standard',
     });
     setShowModal(true);
   };
@@ -190,6 +203,19 @@ const Students = () => {
     setForm(emptyForm);
     setEditing(null);
     setError('');
+    setPhotoPreview(null);
+  };
+
+  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setForm({ ...form, photo: file });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const stats = {
@@ -461,6 +487,47 @@ const Students = () => {
             )}
 
             <form onSubmit={handleSubmit} className="space-y-5 p-6">
+              {/* Photo Upload */}
+              <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50">
+                <div className="text-center">
+                  {photoPreview ? (
+                    <div className="relative">
+                      <img 
+                        src={photoPreview} 
+                        alt="Student preview" 
+                        className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPhotoPreview(null);
+                          setForm({ ...form, photo: null });
+                        }}
+                        className="absolute top-0 right-1/2 translate-x-16 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-slate-200 mx-auto mb-3 flex items-center justify-center">
+                      <Camera className="w-12 h-12 text-slate-400" />
+                    </div>
+                  )}
+                  <label className="cursor-pointer">
+                    <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
+                      Upload Student Photo
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
+                  </label>
+                  <p className="text-xs text-slate-500 mt-1">Required for face recognition attendance</p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">First Name</label>
@@ -538,22 +605,6 @@ const Students = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="mb-2 block text-sm font-semibold text-slate-700">Dietary Preferences</label>
-                  <select
-                    value={form.dietary_preferences}
-                    onChange={(e) => setForm({ ...form, dietary_preferences: e.target.value })}
-                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
-                  >
-                    <option>Standard</option>
-                    <option>High protein</option>
-                    <option>Vegetarian</option>
-                    <option>Vegan</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-5">
-                <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">Parent Name</label>
                   <input
                     type="text"
@@ -562,6 +613,9 @@ const Students = () => {
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="mb-2 block text-sm font-semibold text-slate-700">Parent Phone</label>
                   <input
@@ -571,19 +625,20 @@ const Students = () => {
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="allergies"
-                  checked={form.has_allergies}
-                  onChange={(e) => setForm({ ...form, has_allergies: e.target.checked })}
-                  className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
-                />
-                <label htmlFor="allergies" className="cursor-pointer text-sm font-medium text-slate-700">
-                  Has food allergies
-                </label>
+                <div className="flex items-center">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      id="allergies"
+                      checked={form.has_allergies}
+                      onChange={(e) => setForm({ ...form, has_allergies: e.target.checked })}
+                      className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <label htmlFor="allergies" className="cursor-pointer text-sm font-medium text-slate-700">
+                      Has food allergies
+                    </label>
+                  </div>
+                </div>
               </div>
 
               <div className="flex gap-4 pt-2">

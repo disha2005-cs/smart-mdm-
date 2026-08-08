@@ -17,6 +17,7 @@ class Student(Base):
     section = Column(String)
     parent_name = Column(String)
     parent_phone = Column(String)
+    photo_path = Column(String)  # Path to student photo for face recognition
     has_allergies = Column(Boolean, default=False)
     dietary_preferences = Column(String)
     is_active = Column(Boolean, default=True)

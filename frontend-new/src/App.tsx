@@ -4,7 +4,7 @@ import Welcome from './pages/Welcome';
 import PortalSelection from './pages/PortalSelection';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
-import Students from './pages/Students';
+import StudentManagement from './pages/StudentManagement';
 import Attendance from './pages/Attendance';
 import Inventory from './pages/Inventory';
 import Reports from './pages/Reports';
@@ -50,10 +50,14 @@ function App() {
         />
         <Route
           path="/students"
+          element={<Navigate to="/student-management" replace />}
+        />
+        <Route
+          path="/student-management"
           element={
             <ProtectedRoute>
               <RoleProtectedRoute allowedRoles={['SCHOOL']}>
-                <Students />
+                <StudentManagement />
               </RoleProtectedRoute>
             </ProtectedRoute>
           }

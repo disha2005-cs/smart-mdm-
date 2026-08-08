@@ -45,8 +45,12 @@ export const authAPI = {
 export const studentsAPI = {
   getAll: () => api.get('/students'),
   getById: (id: number) => api.get(`/students/${id}`),
-  create: (data: any) => api.post('/students/', data),
-  update: (id: number, data: any) => api.put(`/students/${id}`, data),
+  create: (data: any) => api.post('/students/', data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
+  update: (id: number, data: any) => api.put(`/students/${id}`, data, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  }),
   delete: (id: number) => api.delete(`/students/${id}`),
 };
 
@@ -69,12 +73,25 @@ export const inventoryAPI = {
 
 // Attendance API
 export const attendanceAPI = {
+  // Face recognition endpoints
+  detectFaces: (frame: string) => api.post('/attendance/detect-faces', { frame }),
+  markAttendance: (frame: string, studentId?: number) => 
+    api.post('/attendance/mark-attendance', { frame, student_id: studentId }),
+  
+  // Legacy capture endpoint
   capture: (formData: FormData) => api.post('/attendance/capture', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
+  
+  // Data retrieval
   getToday: () => api.get('/attendance/today'),
   getByDate: (date: string) => api.get(`/attendance/date/${date}`),
-  getStudentHistory: (studentId: number) => api.get(`/attendance/student/${studentId}/history`),
+  getStudentHistory: (studentId: number, days: number = 30) => 
+    api.get(`/attendance/student/${studentId}/history`, { params: { days } }),
+  getTodayStatistics: () => api.get('/attendance/statistics/today'),
+  
+  // Management
+  delete: (attendanceId: number) => api.delete(`/attendance/${attendanceId}`),
 };
 
 // Dashboard API

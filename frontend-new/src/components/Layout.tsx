@@ -37,19 +37,17 @@ const getMenuItems = (role: string) => {
       { icon: IndianRupee, label: 'Budget Allocation', path: '/budget-allocation' },
       { icon: Package, label: 'Inventory Monitoring', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
-      { icon: Bell, label: 'Notifications', path: '/notifications' },
       { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   } else {
     // School Dashboard Navigation
     return [
       { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
-      { icon: Users, label: 'Student Management', path: '/students' },
+      { icon: Users, label: 'Student Management', path: '/student-management' },
       { icon: ClipboardCheck, label: 'Attendance', path: '/attendance' },
       { icon: Utensils, label: 'Meal Management', path: '/meals' },
       { icon: Package, label: 'Inventory Management', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
-      { icon: Bell, label: 'Notifications', path: '/notifications' },
       { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   }
