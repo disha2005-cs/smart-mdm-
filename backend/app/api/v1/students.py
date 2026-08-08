@@ -222,6 +222,7 @@ async def update_student(
                 ).first()
                 if old_encoding:
                     db.delete(old_encoding)
+                    db.flush()  # Ensure deletion is committed before insert
                 
                 # Create new encoding as a list (for Vector type)
                 encoding_list = encoding.tolist()  # Convert numpy array to list
@@ -235,6 +236,7 @@ async def update_student(
                 logger.warning(f"No face detected in new photo for student {student.student_id}")
         except Exception as e:
             logger.error(f"Error updating face encoding: {e}")
+            # Don't fail update if encoding fails
     
     db.commit()
     db.refresh(student)

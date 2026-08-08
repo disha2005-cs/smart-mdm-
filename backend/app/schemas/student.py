@@ -11,6 +11,7 @@ class StudentBase(BaseModel):
     section: Optional[str] = None
     parent_name: Optional[str] = None
     parent_phone: Optional[str] = None
+    photo_path: Optional[str] = None
     has_allergies: Optional[bool] = False
     dietary_preferences: Optional[str] = None
 

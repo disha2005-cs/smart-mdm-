@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
 from app.bootstrap import seed_demo_data
@@ -62,6 +63,9 @@ def create_app() -> FastAPI:
     app.include_router(iot.router, prefix=f"{settings.API_V1_STR}/iot", tags=["iot"])
     app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
     app.include_router(system.router, prefix=f"{settings.API_V1_STR}/system", tags=["system"])
+
+    # Mount static files (uploads)
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
     @app.get("/health")
     def health_check():

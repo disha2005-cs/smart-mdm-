@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
-import { Users, ChevronRight, Calendar, CheckCircle, XCircle, ArrowLeft, Plus, X, Camera } from 'lucide-react';
+import { Users, ChevronRight, Calendar, CheckCircle, XCircle, ArrowLeft, Plus, X, Camera, Edit, Trash2 } from 'lucide-react';
 import { studentsAPI, attendanceAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
 
@@ -117,6 +117,40 @@ const StudentManagement = () => {
   const handleStudentClick = async (student: Student) => {
     setSelectedStudent(student);
     await fetchStudentAttendance(student.id);
+  };
+
+  const handleEditStudent = (student: Student, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    setEditing(student);
+    setForm({
+      first_name: student.first_name,
+      last_name: student.last_name,
+      date_of_birth: student.date_of_birth || '',
+      gender: student.gender || 'Male',
+      grade: student.grade || '1',
+      parent_name: student.parent_name || '',
+      parent_phone: student.parent_phone || '',
+      photo: null,
+    });
+    setPhotoPreview(null); // Will show existing photo in modal
+    setShowModal(true);
+  };
+
+  const handleDeleteStudent = async (student: Student, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card click
+    if (!confirm(`Are you sure you want to delete ${student.first_name} ${student.last_name}?`)) return;
+    
+    try {
+      await studentsAPI.delete(student.id);
+      await fetchStudents();
+      // If we're viewing this student's details, go back
+      if (selectedStudent?.id === student.id) {
+        setSelectedStudent(null);
+      }
+    } catch (err: any) {
+      console.error('Error deleting student:', err);
+      alert('Failed to delete student: ' + (err.response?.data?.detail || err.message));
+    }
   };
 
   const handleBack = () => {
@@ -353,6 +387,15 @@ const StudentManagement = () => {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
+                  ) : editing && editing.photo_path ? (
+                    <div className="relative">
+                      <img 
+                        src={`http://localhost:8000/${editing.photo_path}`}
+                        alt="Current photo" 
+                        className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
+                      />
+                      <p className="text-xs text-slate-500 mb-2">Current photo</p>
+                    </div>
                   ) : (
                     <div className="w-32 h-32 rounded-full bg-slate-200 mx-auto mb-3 flex items-center justify-center">
                       <Camera className="w-12 h-12 text-slate-400" />
@@ -360,7 +403,7 @@ const StudentManagement = () => {
                   )}
                   <label className="cursor-pointer">
                     <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                      Upload Student Photo
+                      {editing && editing.photo_path && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
                     </span>
                     <input
                       type="file"
@@ -507,26 +550,62 @@ const StudentManagement = () => {
           {/* Student List */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {gradeStudents.map((student) => (
-              <button
+              <div
                 key={student.id}
-                onClick={() => handleStudentClick(student)}
-                className="bg-white rounded-xl p-5 border-2 border-slate-100 hover:border-primary-300 hover:shadow-md transition-all text-left"
+                className="bg-white rounded-xl p-5 border-2 border-slate-100 hover:border-primary-300 hover:shadow-md transition-all"
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold">
-                    {student.first_name.charAt(0)}{student.last_name.charAt(0)}
+                <div className="flex items-start gap-3 mb-3">
+                  {/* Student Photo or Avatar */}
+                  {student.photo_path ? (
+                    <img
+                      src={`http://localhost:8000/${student.photo_path}`}
+                      alt={`${student.first_name} ${student.last_name}`}
+                      className="w-14 h-14 rounded-full object-cover border-2 border-primary-200"
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-semibold text-lg">
+                      {student.first_name.charAt(0)}{student.last_name.charAt(0)}
+                    </div>
+                  )}
+                  
+                  <div className="flex-1 min-w-0">
+                    <button
+                      onClick={() => handleStudentClick(student)}
+                      className="text-left w-full group"
+                    >
+                      <p className="font-semibold text-slate-800 group-hover:text-primary-600 transition-colors truncate">
+                        {student.first_name} {student.last_name}
+                      </p>
+                      <p className="text-xs text-slate-500">{student.student_id}</p>
+                    </button>
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-800">{student.first_name} {student.last_name}</p>
-                    <p className="text-sm text-slate-500">Section {student.section}</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400" />
+                  
+                  <ChevronRight className="w-5 h-5 text-slate-400 flex-shrink-0 mt-1" />
                 </div>
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{student.student_id}</span>
+
+                <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
                   <span>{student.gender}</span>
+                  <span>Grade {student.grade}</span>
                 </div>
-              </button>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-3 border-t border-slate-100">
+                  <button
+                    onClick={(e) => handleEditStudent(student, e)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-primary-600 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors"
+                  >
+                    <Edit className="w-4 h-4" />
+                    Edit
+                  </button>
+                  <button
+                    onClick={(e) => handleDeleteStudent(student, e)}
+                    className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-sm font-medium text-danger-600 bg-danger-50 rounded-lg hover:bg-danger-100 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
 
@@ -587,6 +666,15 @@ const StudentManagement = () => {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
+                  ) : editing && editing.photo_path ? (
+                    <div className="relative">
+                      <img 
+                        src={`http://localhost:8000/${editing.photo_path}`}
+                        alt="Current photo" 
+                        className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
+                      />
+                      <p className="text-xs text-slate-500 mb-2">Current photo</p>
+                    </div>
                   ) : (
                     <div className="w-32 h-32 rounded-full bg-slate-200 mx-auto mb-3 flex items-center justify-center">
                       <Camera className="w-12 h-12 text-slate-400" />
@@ -594,7 +682,7 @@ const StudentManagement = () => {
                   )}
                   <label className="cursor-pointer">
                     <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                      Upload Student Photo
+                      {editing && editing.photo_path && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
                     </span>
                     <input
                       type="file"
@@ -726,19 +814,36 @@ const StudentManagement = () => {
       <>
         <Layout>
         <div className="animate-fade-in space-y-6">
-          {/* Header with back button */}
-          <div className="flex items-center gap-4">
-            <button
-              onClick={handleBack}
-              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
-            >
-              <ArrowLeft className="w-6 h-6 text-slate-600" />
-            </button>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-800">
-                {selectedStudent.first_name} {selectedStudent.last_name}
-              </h1>
-              <p className="text-slate-500">Grade {selectedStudent.grade} • Section {selectedStudent.section}</p>
+          {/* Header with back button and photo */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleBack}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <ArrowLeft className="w-6 h-6 text-slate-600" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-slate-800">
+                  {selectedStudent.first_name} {selectedStudent.last_name}
+                </h1>
+                <p className="text-slate-500">Grade {selectedStudent.grade}</p>
+              </div>
+            </div>
+            
+            {/* Student Photo */}
+            <div className="flex-shrink-0">
+              {selectedStudent.photo_path ? (
+                <img
+                  src={`http://localhost:8000/${selectedStudent.photo_path}`}
+                  alt={`${selectedStudent.first_name} ${selectedStudent.last_name}`}
+                  className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-lg"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-2xl shadow-lg">
+                  {selectedStudent.first_name.charAt(0)}{selectedStudent.last_name.charAt(0)}
+                </div>
+              )}
             </div>
           </div>
 
@@ -893,6 +998,15 @@ const StudentManagement = () => {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
+                  ) : editing && editing.photo_path ? (
+                    <div className="relative">
+                      <img 
+                        src={`http://localhost:8000/${editing.photo_path}`}
+                        alt="Current photo" 
+                        className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
+                      />
+                      <p className="text-xs text-slate-500 mb-2">Current photo</p>
+                    </div>
                   ) : (
                     <div className="w-32 h-32 rounded-full bg-slate-200 mx-auto mb-3 flex items-center justify-center">
                       <Camera className="w-12 h-12 text-slate-400" />
@@ -900,7 +1014,7 @@ const StudentManagement = () => {
                   )}
                   <label className="cursor-pointer">
                     <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                      Upload Student Photo
+                      {editing && editing.photo_path && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
                     </span>
                     <input
                       type="file"
