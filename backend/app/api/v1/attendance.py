@@ -83,7 +83,8 @@ async def detect_faces_in_frame(
         # Prepare known encodings list
         known_encodings = []
         for encoding_model, student in encodings_query:
-            enc_array = face_service.base64_to_encoding(encoding_model.encoding)
+            # Encoding is stored as list in database, convert to numpy array
+            enc_array = np.array(encoding_model.encoding, dtype=np.float32)
             known_encodings.append((student.id, enc_array))
         
         # Match each detected face
@@ -93,11 +94,11 @@ async def detect_faces_in_frame(
             bbox = face_data['bbox']
             confidence = face_data['confidence']
             
-            # Try to find a match
+            # Try to find a match with higher threshold for accuracy
             match_result = face_service.find_best_match(
                 face_encoding,
                 known_encodings,
-                threshold=0.4  # Adjust threshold as needed
+                threshold=0.6  # Higher threshold (60%) for better accuracy
             )
             
             face_info = {
@@ -180,9 +181,20 @@ async def mark_attendance_from_camera(
                 detail="Multiple faces detected. Please ensure only one person is in the frame."
             )
         
+        # Check face quality for better accuracy
+        detected_face = detected_faces[0]
+        face_quality = detected_face.get('quality', 0)
+        
+        if face_quality < 0.5:  # Minimum quality threshold
+            os.remove(file_path)
+            raise HTTPException(
+                status_code=400,
+                detail="Face quality is too low. Please ensure good lighting and face the camera directly."
+            )
+        
         # Get face encoding
-        face_encoding = detected_faces[0]['encoding']
-        detection_confidence = detected_faces[0]['confidence']
+        face_encoding = detected_face['encoding']
+        detection_confidence = detected_face['confidence']
         
         # Get all face encodings for active students in this school
         encodings_query = db.query(
@@ -204,24 +216,33 @@ async def mark_attendance_from_camera(
         # Prepare known encodings
         known_encodings = []
         for encoding_model, student in encodings_query:
-            enc_array = face_service.base64_to_encoding(encoding_model.encoding)
+            # Encoding is stored as list in database, convert to numpy array
+            enc_array = np.array(encoding_model.encoding, dtype=np.float32)
             known_encodings.append((student.id, enc_array))
         
-        # Find best match
+        # Find best match with higher threshold for accuracy
         match_result = face_service.find_best_match(
             face_encoding,
             known_encodings,
-            threshold=0.4
+            threshold=0.6  # Higher threshold (60%) for better accuracy
         )
         
         if not match_result:
             os.remove(file_path)
             raise HTTPException(
                 status_code=404, 
-                detail="Face not recognized. Please ensure the student is registered."
+                detail="Face not recognized. Please ensure the student is registered and try again with better lighting."
             )
         
         matched_student_id, match_confidence = match_result
+        
+        # Require minimum 65% confidence for marking attendance (stricter matching)
+        if match_confidence < 0.65:
+            os.remove(file_path)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Face match confidence too low ({match_confidence*100:.1f}%). Please face the camera directly and ensure good lighting."
+            )
         
         # If student_id was provided, verify it matches
         if request.student_id is not None and request.student_id != matched_student_id:

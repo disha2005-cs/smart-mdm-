@@ -14,6 +14,7 @@ interface DetectedFace {
     section: string;
   } | null;
   match_confidence: number;
+  quality?: number;
 }
 
 interface AttendanceResult {
@@ -319,12 +320,28 @@ export default function FaceRecognitionCamera({
               </div>
             )}
 
-            {/* Face Count */}
+            {/* Face Count and Quality Indicators */}
             {detectedFaces.length > 0 && (
-              <div className="absolute top-4 left-4 bg-gray-900 bg-opacity-75 text-white px-3 py-2 rounded-lg">
-                <span className="text-sm">
-                  {detectedFaces.length} face(s) detected
-                </span>
+              <div className="absolute top-4 left-4 space-y-2">
+                <div className="bg-gray-900 bg-opacity-75 text-white px-3 py-2 rounded-lg">
+                  <span className="text-sm">
+                    {detectedFaces.length} face(s) detected
+                  </span>
+                </div>
+                {detectedFaces.map((face, idx) => (
+                  face.quality !== undefined && (
+                    <div 
+                      key={idx}
+                      className={`px-3 py-2 rounded-lg text-xs font-semibold ${
+                        face.quality >= 0.7 ? 'bg-green-600' :
+                        face.quality >= 0.5 ? 'bg-yellow-600' :
+                        'bg-red-600'
+                      } text-white`}
+                    >
+                      Quality: {face.quality >= 0.7 ? 'Excellent' : face.quality >= 0.5 ? 'Good' : 'Poor'}
+                    </div>
+                  )
+                ))}
               </div>
             )}
           </>
@@ -393,13 +410,30 @@ export default function FaceRecognitionCamera({
       {/* Instructions */}
       {!isCameraActive && (
         <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-          <h4 className="font-semibold text-blue-900 mb-2">Instructions:</h4>
+          <h4 className="font-semibold text-blue-900 mb-2">Instructions for Best Accuracy:</h4>
           <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
             <li>Click "Start Camera" to begin face detection</li>
-            <li>Position your face clearly in front of the camera</li>
-            <li>Wait for the system to detect and match your face</li>
-            <li>Once matched, click "Mark Present" or wait for auto-marking</li>
-            <li>Ensure good lighting for best results</li>
+            <li><strong>Face the camera directly</strong> - avoid side angles</li>
+            <li><strong>Ensure good lighting</strong> - face should be clearly visible</li>
+            <li><strong>Stay still</strong> for 1-2 seconds during detection</li>
+            <li><strong>One person at a time</strong> - multiple faces will be rejected</li>
+            <li>Wait for <strong>green box and "Excellent" quality</strong> indicator</li>
+            <li>Minimum 65% confidence required for attendance marking</li>
+          </ul>
+        </div>
+      )}
+      
+      {isCameraActive && (
+        <div className="mt-4 p-4 bg-green-50 rounded-lg border border-green-200">
+          <h4 className="font-semibold text-green-900 mb-2 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            Tips for Perfect Match:
+          </h4>
+          <ul className="text-sm text-green-800 space-y-1 list-disc list-inside">
+            <li>Position your face in the center of the frame</li>
+            <li>Look directly at the camera</li>
+            <li>Wait for "Excellent" quality indicator (green)</li>
+            <li>Keep your face still when the green box appears</li>
           </ul>
         </div>
       )}

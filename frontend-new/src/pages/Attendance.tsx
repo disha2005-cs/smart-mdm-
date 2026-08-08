@@ -103,27 +103,6 @@ const Attendance = () => {
           </div>
         </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { label: 'Total Students', value: total, color: 'from-primary-500 to-primary-700', icon: Users },
-            { label: 'Present', value: present, color: 'from-success-500 to-success-700', icon: UserCheck },
-            { label: 'Absent', value: absent, color: 'from-danger-500 to-danger-700', icon: X },
-            { label: 'Attendance Rate', value: `${rate}%`, color: 'from-warning-500 to-warning-700', icon: Calendar },
-          ].map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <div key={i} className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100">
-                <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${s.color} flex items-center justify-center text-white mb-3`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <p className="text-2xl font-bold text-slate-800">{s.value}</p>
-                <p className="text-sm text-slate-500">{s.label}</p>
-              </div>
-            );
-          })}
-        </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Face Recognition Camera */}
           <div className="lg:col-span-1">
@@ -136,12 +115,12 @@ const Attendance = () => {
           {/* Attendance log */}
           <div className="bg-white rounded-2xl p-6 shadow-sm border border-slate-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-slate-800">Today's Attendance</h3>
-              <span className="text-sm text-slate-400">{records.length} marked</span>
+              <h3 className="text-lg font-bold text-slate-800">Today's Attendance (Latest 10)</h3>
+              <span className="text-sm text-slate-400">{Math.min(records.length, 10)} shown</span>
             </div>
 
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
-              {records.map((record) => (
+              {records.slice(0, 10).map((record) => (
                 <div key={record.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors animate-slide-in">
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     {record.student_name.charAt(0)}
