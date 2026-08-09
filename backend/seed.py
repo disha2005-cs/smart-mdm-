@@ -14,10 +14,12 @@ def seed_db():
             print("Creating Government Admin GOV-001...")
             new_admin = User(
                 employee_id="GOV-001",
-                full_name="Government Administrator",
+                first_name="Government",
+                last_name="Administrator",
                 email="admin@pmposhan.gov.in",
                 phone="9876543210",
                 role=UserRole.GOVERNMENT,
+                designation="Director",
                 password_hash=get_password_hash("password123"),
                 is_active=True
             )
@@ -47,11 +49,13 @@ def seed_db():
             # Create school admin
             school_admin = User(
                 employee_id="SCH-001",
-                full_name="School Principal",
+                first_name="School",
+                last_name="Principal",
                 email="principal@school.edu.in",
                 phone="9876543211",
                 role=UserRole.SCHOOL,
                 school_id=school.id,
+                designation="Principal",
                 password_hash=get_password_hash("password123"),
                 is_active=True
             )
