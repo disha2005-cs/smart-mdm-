@@ -1,10 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Response
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
 import uuid
 import os
 from pathlib import Path
 from loguru import logger
+import io
 
 from app.database import get_db
 from app.api import deps
@@ -15,7 +17,7 @@ from app.services.face_recognition_service import get_face_recognition_service
 
 router = APIRouter()
 
-# Upload directory for student photos
+# Upload directory for student photos (kept for backward compatibility)
 UPLOAD_DIR = Path("uploads/students")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -36,28 +38,34 @@ async def create_student(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Create new student with optional photo upload. If photo is provided, automatically generate face encoding.
+    Create new student with optional photo upload. Photos are stored in database.
+    If photo is provided, automatically generate face encoding.
     """
     # Handle photo upload if provided
-    photo_path = None
+    photo_data = None
+    photo_mime_type = None
+    temp_file_path = None
+    
     if photo:
         try:
             # Validate file type
             if not photo.content_type.startswith('image/'):
                 raise HTTPException(status_code=400, detail="File must be an image")
             
-            # Generate unique filename
+            # Read photo data into memory
+            contents = await photo.read()
+            photo_data = contents
+            photo_mime_type = photo.content_type
+            
+            # Save to temp file for face encoding generation
             file_extension = photo.filename.split('.')[-1]
             unique_filename = f"{uuid.uuid4()}.{file_extension}"
-            file_path = UPLOAD_DIR / unique_filename
+            temp_file_path = UPLOAD_DIR / unique_filename
             
-            # Save file
-            contents = await photo.read()
-            with open(file_path, 'wb') as f:
+            with open(temp_file_path, 'wb') as f:
                 f.write(contents)
             
-            photo_path = str(file_path).replace('\\', '/')
-            logger.info(f"Photo saved to {photo_path}")
+            logger.info(f"Photo uploaded and stored in database")
             
         except Exception as e:
             logger.error(f"Error uploading photo: {e}")
@@ -74,16 +82,17 @@ async def create_student(
         grade=grade if grade else None,
         parent_name=parent_name if parent_name else None,
         parent_phone=parent_phone if parent_phone else None,
-        photo_path=photo_path
+        photo_data=photo_data,
+        photo_mime_type=photo_mime_type
     )
     db.add(student)
     db.flush()  # Get the student.id before commit
     
     # If photo is provided, generate face encoding
-    if photo_path:
+    if temp_file_path:
         try:
             face_service = get_face_recognition_service()
-            encoding = face_service.generate_encoding_from_file(photo_path)
+            encoding = face_service.generate_encoding_from_file(str(temp_file_path))
             
             if encoding is not None:
                 # Store encoding in database as a list (for Vector type)
@@ -96,13 +105,44 @@ async def create_student(
                 logger.info(f"Face encoding generated for student {student_id}")
             else:
                 logger.warning(f"No face detected in photo for student {student_id}")
+                
+            # Clean up temp file
+            os.remove(temp_file_path)
         except Exception as e:
             logger.error(f"Error generating face encoding: {e}")
             # Don't fail student creation if encoding fails
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
     
     db.commit()
     db.refresh(student)
     return student
+
+
+@router.get("/{id}/photo")
+def get_student_photo(
+    id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(deps.get_current_user)
+):
+    """
+    Get student photo from database.
+    """
+    student = db.query(StudentModel).filter(StudentModel.id == id).first()
+    if not student:
+        raise HTTPException(status_code=404, detail="Student not found")
+        
+    if current_user.role == "SCHOOL" and student.school_id != current_user.school_id:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
+    if not student.photo_data:
+        raise HTTPException(status_code=404, detail="Student has no photo")
+    
+    # Return photo as streaming response
+    return StreamingResponse(
+        io.BytesIO(student.photo_data),
+        media_type=student.photo_mime_type or "image/jpeg"
+    )
 
 @router.get("/", response_model=List[Student])
 def read_students(
@@ -157,7 +197,7 @@ async def update_student(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Update student. If photo is uploaded, regenerate face encoding.
+    Update student. If photo is uploaded, regenerate face encoding. Photos stored in database.
     """
     student = db.query(StudentModel).filter(StudentModel.id == id).first()
     if not student:
@@ -169,23 +209,27 @@ async def update_student(
     
     # Handle photo upload if provided
     photo_updated = False
+    temp_file_path = None
+    
     if photo:
         try:
             # Validate file type
             if not photo.content_type.startswith('image/'):
                 raise HTTPException(status_code=400, detail="File must be an image")
             
-            # Generate unique filename
+            # Read photo data into memory
+            contents = await photo.read()
+            student.photo_data = contents
+            student.photo_mime_type = photo.content_type
+            
+            # Save to temp file for face encoding generation
             file_extension = photo.filename.split('.')[-1]
             unique_filename = f"{uuid.uuid4()}.{file_extension}"
-            file_path = UPLOAD_DIR / unique_filename
+            temp_file_path = UPLOAD_DIR / unique_filename
             
-            # Save file
-            contents = await photo.read()
-            with open(file_path, 'wb') as f:
+            with open(temp_file_path, 'wb') as f:
                 f.write(contents)
             
-            student.photo_path = str(file_path).replace('\\', '/')
             photo_updated = True
             logger.info(f"Photo updated for student {student.student_id}")
             
@@ -210,10 +254,10 @@ async def update_student(
         student.parent_phone = parent_phone
     
     # If photo updated, regenerate face encoding
-    if photo_updated and student.photo_path:
+    if photo_updated and temp_file_path:
         try:
             face_service = get_face_recognition_service()
-            encoding = face_service.generate_encoding_from_file(student.photo_path)
+            encoding = face_service.generate_encoding_from_file(str(temp_file_path))
             
             if encoding is not None:
                 # Delete old encoding if exists
@@ -234,9 +278,14 @@ async def update_student(
                 logger.info(f"Face encoding updated for student {student.student_id}")
             else:
                 logger.warning(f"No face detected in new photo for student {student.student_id}")
+                
+            # Clean up temp file
+            os.remove(temp_file_path)
         except Exception as e:
             logger.error(f"Error updating face encoding: {e}")
             # Don't fail update if encoding fails
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
     
     db.commit()
     db.refresh(student)

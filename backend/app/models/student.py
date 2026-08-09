@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, ForeignKey, LargeBinary
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -17,7 +17,9 @@ class Student(Base):
     section = Column(String)
     parent_name = Column(String)
     parent_phone = Column(String)
-    photo_path = Column(String)  # Path to student photo for face recognition
+    photo_path = Column(String)  # DEPRECATED: Kept for backward compatibility
+    photo_data = Column(LargeBinary)  # Store actual photo in database
+    photo_mime_type = Column(String)  # Store image type (image/jpeg, image/png)
     has_allergies = Column(Boolean, default=False)
     dietary_preferences = Column(String)
     is_active = Column(Boolean, default=True)
