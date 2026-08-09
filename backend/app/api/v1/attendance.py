@@ -94,11 +94,11 @@ async def detect_faces_in_frame(
             bbox = face_data['bbox']
             confidence = face_data['confidence']
             
-            # Try to find a match with higher threshold for accuracy
+            # Try to find a match with threshold for accuracy
             match_result = face_service.find_best_match(
                 face_encoding,
                 known_encodings,
-                threshold=0.6  # Higher threshold (60%) for better accuracy
+                threshold=0.4  # Lowered threshold (40%) for easier matching
             )
             
             face_info = {
@@ -221,11 +221,11 @@ async def mark_attendance_from_camera(
             enc_array = np.array(encoding_model.encoding, dtype=np.float32)
             known_encodings.append((student.id, enc_array))
         
-        # Find best match with higher threshold for accuracy
+        # Find best match with threshold for accuracy
         match_result = face_service.find_best_match(
             face_encoding,
             known_encodings,
-            threshold=0.6  # Higher threshold (60%) for better accuracy
+            threshold=0.4  # Lowered threshold (40%) for easier matching
         )
         
         if not match_result:
@@ -237,8 +237,8 @@ async def mark_attendance_from_camera(
         
         matched_student_id, match_confidence = match_result
         
-        # Require minimum 65% confidence for marking attendance (stricter matching)
-        if match_confidence < 0.65:
+        # Require minimum 45% confidence for marking attendance
+        if match_confidence < 0.45:
             os.remove(file_path)
             raise HTTPException(
                 status_code=400,

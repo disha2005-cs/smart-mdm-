@@ -6,6 +6,9 @@ import { studentsAPI, attendanceAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
 import type { Student } from '../types';
 
+// Get API base URL without /api/v1 suffix for static files
+const API_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
+
 interface AttendanceRecord {
   id: number;
   date: string;
@@ -375,7 +378,7 @@ const StudentManagement = () => {
                   ) : editing && editing.photo_path ? (
                     <div className="relative">
                       <img 
-                        src={`http://localhost:8000/${editing.photo_path}`}
+                        src={`${API_BASE_URL}/${editing.photo_path}`}
                         alt="Current photo" 
                         className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
                       />
@@ -543,7 +546,7 @@ const StudentManagement = () => {
                   {/* Student Photo or Avatar */}
                   {student.photo_path ? (
                     <img
-                      src={`http://localhost:8000/${student.photo_path}`}
+                      src={`${API_BASE_URL}/${student.photo_path}`}
                       alt={`${student.first_name} ${student.last_name}`}
                       className="w-14 h-14 rounded-full object-cover border-2 border-primary-200"
                     />
@@ -654,7 +657,7 @@ const StudentManagement = () => {
                   ) : editing && editing.photo_path ? (
                     <div className="relative">
                       <img 
-                        src={`http://localhost:8000/${editing.photo_path}`}
+                        src={`${API_BASE_URL}/${editing.photo_path}`}
                         alt="Current photo" 
                         className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
                       />
@@ -820,7 +823,7 @@ const StudentManagement = () => {
             <div className="flex-shrink-0">
               {selectedStudent.photo_path ? (
                 <img
-                  src={`http://localhost:8000/${selectedStudent.photo_path}`}
+                  src={`${API_BASE_URL}/${selectedStudent.photo_path}`}
                   alt={`${selectedStudent.first_name} ${selectedStudent.last_name}`}
                   className="w-24 h-24 rounded-2xl object-cover border-4 border-white shadow-lg"
                 />
@@ -986,7 +989,7 @@ const StudentManagement = () => {
                   ) : editing && editing.photo_path ? (
                     <div className="relative">
                       <img 
-                        src={`http://localhost:8000/${editing.photo_path}`}
+                        src={`${API_BASE_URL}/${editing.photo_path}`}
                         alt="Current photo" 
                         className="w-32 h-32 rounded-full object-cover mx-auto mb-3 border-4 border-white shadow-lg"
                       />
