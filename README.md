@@ -28,9 +28,11 @@ A comprehensive system for managing mid-day meal programs in schools with AI-pow
 
 ## Installation
 
+⚠️ **IMPORTANT:** Your friend MUST use Python 3.11 or 3.12. Python 3.14 will fail because packages like scikit-learn don't have wheels for it yet.
+
 ### Prerequisites
 
-- Python 3.12+
+- **Python 3.11 or 3.12** (Python 3.14 is too new, packages not compatible yet)
 - Node.js 18+
 - PostgreSQL 14+ (or use Neon DB cloud)
 - Git
