@@ -18,9 +18,11 @@ def read_schools(
     db: Session = Depends(get_db),
     current_user=Depends(deps.get_current_user),
 ):
+    from app.models.user import UserRole
+    
     query = db.query(SchoolModel)
 
-    if current_user.role.value == "SCHOOL":
+    if current_user.role == UserRole.SCHOOL:
         query = query.filter(SchoolModel.id == current_user.school_id)
 
     schools = query.order_by(SchoolModel.school_name.asc()).offset(skip).limit(limit).all()
@@ -82,12 +84,14 @@ def read_school(
     """
     Get school by ID.
     """
+    from app.models.user import UserRole
+    
     school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     
     # School admins can only access their own school
-    if current_user.role.value == "SCHOOL" and current_user.school_id != id:
+    if current_user.role == UserRole.SCHOOL and current_user.school_id != id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     return school
