@@ -128,11 +128,13 @@ def get_student_photo(
     """
     Get student photo from database or fallback to file system.
     """
+    from app.models.user import UserRole
+    
     student = db.query(StudentModel).filter(StudentModel.id == id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
         
-    if current_user.role == "SCHOOL" and student.school_id != current_user.school_id:
+    if current_user.role == UserRole.SCHOOL and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Try photo_data first (new method)
@@ -162,9 +164,11 @@ def read_students(
     """
     Retrieve students. School Admins can only see their school's students.
     """
+    from app.models.user import UserRole
+    
     query = db.query(StudentModel)
     
-    if current_user.role == "SCHOOL":
+    if current_user.role == UserRole.SCHOOL:
         query = query.filter(StudentModel.school_id == current_user.school_id)
         
     students = query.offset(skip).limit(limit).all()
@@ -205,11 +209,13 @@ def read_student(
     """
     Get student by ID.
     """
+    from app.models.user import UserRole
+    
     student = db.query(StudentModel).filter(StudentModel.id == id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
         
-    if current_user.role == "SCHOOL" and student.school_id != current_user.school_id:
+    if current_user.role == UserRole.SCHOOL and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
         
     return student
