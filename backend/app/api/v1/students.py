@@ -217,8 +217,28 @@ def read_student(
         
     if current_user.role == UserRole.SCHOOL and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-        
-    return student
+    
+    # Return as dict with has_photo field
+    return {
+        "id": student.id,
+        "student_id": student.student_id,
+        "school_id": student.school_id,
+        "first_name": student.first_name,
+        "last_name": student.last_name,
+        "date_of_birth": student.date_of_birth,
+        "gender": student.gender,
+        "grade": student.grade,
+        "section": student.section,
+        "parent_name": student.parent_name,
+        "parent_phone": student.parent_phone,
+        "photo_path": student.photo_path,
+        "has_allergies": student.has_allergies,
+        "dietary_preferences": student.dietary_preferences,
+        "is_active": student.is_active,
+        "created_at": student.created_at,
+        "updated_at": student.updated_at,
+        "has_photo": bool(student.photo_data or student.photo_path)
+    }
 
 
 @router.put("/{id}", response_model=Student)
