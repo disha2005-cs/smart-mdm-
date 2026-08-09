@@ -316,7 +316,9 @@ def get_today_attendance(
     current_user = Depends(deps.get_current_user)
 ):
     """Get today's attendance for school."""
-    school_id = current_user.school_id if current_user.role == "SCHOOL" else None
+    from app.models.user import UserRole
+    
+    school_id = current_user.school_id if current_user.role == UserRole.SCHOOL else None
     
     query = db.query(Attendance).join(Student).filter(
         Attendance.date == date.today()
@@ -347,12 +349,14 @@ def get_attendance_by_date(
     current_user = Depends(deps.get_current_user)
 ):
     """Get attendance for specific date (format: YYYY-MM-DD)."""
+    from app.models.user import UserRole
+    
     try:
         attendance_date = datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
     
-    school_id = current_user.school_id if current_user.role == "SCHOOL" else None
+    school_id = current_user.school_id if current_user.role == UserRole.SCHOOL else None
     
     query = db.query(Attendance).join(Student).filter(
         Attendance.date == attendance_date
@@ -383,13 +387,15 @@ def get_student_attendance_history(
     current_user = Depends(deps.get_current_user)
 ):
     """Get attendance history for a specific student (last N days)."""
+    from app.models.user import UserRole
+    
     student = db.query(Student).filter(Student.id == student_id).first()
     
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     # School admins can only see their own school's students
-    if current_user.role == "SCHOOL" and student.school_id != current_user.school_id:
+    if current_user.role == UserRole.SCHOOL and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not authorized to view this student's attendance")
     
     # Get records from last N days
