@@ -28,6 +28,7 @@ class Student(StudentBase):
     is_active: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
+    has_photo: Optional[bool] = None  # Indicates if photo exists
 
     class Config:
         from_attributes = True

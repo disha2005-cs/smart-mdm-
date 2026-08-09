@@ -168,7 +168,33 @@ def read_students(
         query = query.filter(StudentModel.school_id == current_user.school_id)
         
     students = query.offset(skip).limit(limit).all()
-    return students
+    
+    # Add has_photo field to response
+    result = []
+    for student in students:
+        student_dict = {
+            "id": student.id,
+            "student_id": student.student_id,
+            "school_id": student.school_id,
+            "first_name": student.first_name,
+            "last_name": student.last_name,
+            "date_of_birth": student.date_of_birth,
+            "gender": student.gender,
+            "grade": student.grade,
+            "section": student.section,
+            "parent_name": student.parent_name,
+            "parent_phone": student.parent_phone,
+            "photo_path": student.photo_path,
+            "has_allergies": student.has_allergies,
+            "dietary_preferences": student.dietary_preferences,
+            "is_active": student.is_active,
+            "created_at": student.created_at,
+            "updated_at": student.updated_at,
+            "has_photo": bool(student.photo_data or student.photo_path)  # Add indicator
+        }
+        result.append(student_dict)
+    
+    return result
 
 @router.get("/{id}", response_model=Student)
 def read_student(

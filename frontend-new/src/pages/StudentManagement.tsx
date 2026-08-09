@@ -375,7 +375,7 @@ const StudentManagement = () => {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                  ) : editing && (editing.photo_data || editing.photo_path) ? (
+                  ) : editing && editing.has_photo ? (
                     <div className="relative">
                       <img 
                         src={`${API_BASE_URL}/api/v1/students/${editing.id}/photo`}
@@ -391,7 +391,7 @@ const StudentManagement = () => {
                   )}
                   <label className="cursor-pointer">
                     <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                      {editing && (editing.photo_data || editing.photo_path) && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
+                      {editing && editing.has_photo && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
                     </span>
                     <input
                       type="file"
@@ -544,7 +544,7 @@ const StudentManagement = () => {
               >
                 <div className="flex items-start gap-3 mb-3">
                   {/* Student Photo or Avatar */}
-                  {student.photo_data || student.photo_path ? (
+                  {student.has_photo ? (
                     <img
                       src={`${API_BASE_URL}/api/v1/students/${student.id}/photo`}
                       alt={`${student.first_name} ${student.last_name}`}
@@ -654,7 +654,7 @@ const StudentManagement = () => {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                  ) : editing && (editing.photo_data || editing.photo_path) ? (
+                  ) : editing && editing.has_photo ? (
                     <div className="relative">
                       <img 
                         src={`${API_BASE_URL}/api/v1/students/${editing.id}/photo`}
@@ -670,7 +670,7 @@ const StudentManagement = () => {
                   )}
                   <label className="cursor-pointer">
                     <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                      {editing && (editing.photo_data || editing.photo_path) && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
+                      {editing && editing.has_photo && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
                     </span>
                     <input
                       type="file"
@@ -986,7 +986,7 @@ const StudentManagement = () => {
                         <X className="w-4 h-4" />
                       </button>
                     </div>
-                  ) : editing && (editing.photo_data || editing.photo_path) ? (
+                  ) : editing && editing.has_photo ? (
                     <div className="relative">
                       <img 
                         src={`${API_BASE_URL}/api/v1/students/${editing.id}/photo`}
@@ -1002,7 +1002,7 @@ const StudentManagement = () => {
                   )}
                   <label className="cursor-pointer">
                     <span className="text-sm font-semibold text-primary-600 hover:text-primary-700">
-                      {editing && (editing.photo_data || editing.photo_path) && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
+                      {editing && editing.has_photo && !photoPreview ? 'Change Photo' : 'Upload Student Photo'}
                     </span>
                     <input
                       type="file"

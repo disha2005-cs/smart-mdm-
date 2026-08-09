@@ -38,8 +38,7 @@ export interface Student {
   dietary_preferences: string | null;
   is_active: boolean;
   photo_path: string | null;
-  photo_data?: boolean | null;  // Indicates if photo is stored in database
-  photo_mime_type?: string | null;
+  has_photo?: boolean;  // Indicates if photo is stored
   created_at: string;
   updated_at: string;
 }
