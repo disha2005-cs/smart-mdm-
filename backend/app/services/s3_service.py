@@ -4,6 +4,10 @@ import os
 from loguru import logger
 import uuid
 from typing import Optional
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class S3Service:
     def __init__(self):
