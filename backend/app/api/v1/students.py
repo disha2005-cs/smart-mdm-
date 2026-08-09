@@ -126,7 +126,7 @@ def get_student_photo(
     current_user = Depends(deps.get_current_user)
 ):
     """
-    Get student photo from database.
+    Get student photo from database or fallback to file system.
     """
     student = db.query(StudentModel).filter(StudentModel.id == id).first()
     if not student:
@@ -135,14 +135,22 @@ def get_student_photo(
     if current_user.role == "SCHOOL" and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    if not student.photo_data:
-        raise HTTPException(status_code=404, detail="Student has no photo")
+    # Try photo_data first (new method)
+    if student.photo_data:
+        return StreamingResponse(
+            io.BytesIO(student.photo_data),
+            media_type=student.photo_mime_type or "image/jpeg"
+        )
     
-    # Return photo as streaming response
-    return StreamingResponse(
-        io.BytesIO(student.photo_data),
-        media_type=student.photo_mime_type or "image/jpeg"
-    )
+    # Fallback to photo_path (old method) for backward compatibility
+    if student.photo_path and os.path.exists(student.photo_path):
+        return StreamingResponse(
+            open(student.photo_path, "rb"),
+            media_type="image/jpeg"
+        )
+    
+    # No photo available
+    raise HTTPException(status_code=404, detail="Student has no photo")
 
 @router.get("/", response_model=List[Student])
 def read_students(
@@ -398,7 +406,7 @@ def delete_student(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Delete student.
+    Delete student and associated data.
     """
     student = db.query(StudentModel).filter(StudentModel.id == id).first()
     if not student:
@@ -408,6 +416,15 @@ def delete_student(
     if student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
+    # Delete face encoding first (if exists)
+    face_encoding = db.query(FaceEncodingModel).filter(
+        FaceEncodingModel.student_id == id
+    ).first()
+    if face_encoding:
+        db.delete(face_encoding)
+        db.flush()
+    
+    # Delete student
     db.delete(student)
     db.commit()
     return None
