@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.api import deps
 from app.database import get_db
-from app.models.admin import SchoolAdmin
+from app.models.user import User, UserRole
 from app.models.alert import Alert
 from app.models.attendance import Attendance
 from app.models.daily_meal import DailyMeal

@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import get_password_hash
 from app.database import SessionLocal
-from app.models.admin import GovernmentAdmin, SchoolAdmin
+from app.models.user import User, UserRole
 from app.models.alert import Alert
 from app.models.attendance import Attendance
 from app.models.daily_meal import DailyMeal
