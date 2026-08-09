@@ -21,9 +21,14 @@
    - AMI ID: ami-0e2c8caa4b6378d8c (or latest Ubuntu 22.04 in your region)
 
    **Instance type:**
-   - Select: **t2.medium** (minimum recommended)
-   - vCPUs: 2, Memory: 4 GiB
-   - Or **t2.large** (better for face recognition): vCPUs: 2, Memory: 8 GiB
+   - **For Free Tier:** Select **t2.micro** (Free tier eligible - 750 hours/month free)
+     - vCPUs: 1, Memory: 1 GiB
+     - ⚠️ May be slow for face recognition, but free!
+   - **Recommended if using credits:** Select **t2.medium** or **t2.large**
+     - t2.medium: vCPUs: 2, Memory: 4 GiB (~$30/month)
+     - t2.large: vCPUs: 2, Memory: 8 GiB (~$60/month)
+   
+   💡 **With AWS Credits:** Choose t2.medium or t2.large for better performance
 
    **Key pair (login):**
    - Click "Create new key pair"
@@ -54,9 +59,12 @@
    | Custom TCP | TCP | 5173 | 0.0.0.0/0 | Frontend Dev Server |
 
    **Configure storage:**
-   - Size: **30 GiB** (minimum, increase if needed)
-   - Volume type: **gp3** (General Purpose SSD)
+   - **For Free Tier:** Size: **30 GiB** (Free tier includes 30 GB)
+   - **With Credits:** Size: **30-50 GiB** (more space for logs and uploads)
+   - Volume type: **gp3** (General Purpose SSD) or **gp2** (free tier eligible)
    - Delete on termination: **Yes**
+   
+   💡 **Free Tier Storage:** 30 GB of EBS General Purpose (SSD) or Magnetic storage
 
 3. **Review and Launch**
    - Click "Launch instance"
@@ -433,14 +441,39 @@ source venv/bin/activate
 
 ## Cost Optimization
 
-- **Stop instance when not in use** (data persists on EBS volume)
-- **Use t2.medium for testing**, upgrade to t2.large if needed
-- **Set up billing alerts** in AWS console
-- **Estimated monthly cost:**
-  - t2.medium: ~$30-35/month
-  - t2.large: ~$60-70/month
-  - 30GB storage: ~$3/month
-  - Data transfer: Variable
+### AWS Free Credits Usage:
+- **Check your credits balance:** AWS Console > Billing Dashboard > Credits
+- **Monitor usage:** Set up billing alerts to track credit consumption
+- **Stop instance when not in use** to save credits (data persists on EBS)
+- **Recommended instance for credits:** t2.medium (~$30-35/month deducted from credits)
+
+### Free Tier Benefits (First 12 months):
+- ✅ **750 hours/month** of t2.micro (enough for 24/7 operation)
+- ✅ **30 GB** of EBS storage
+- ✅ **15 GB** of bandwidth out aggregated across all AWS services
+- ✅ **750 hours/month** of RDS db.t2.micro (if you switch to RDS later)
+
+### Estimated Credit Consumption:
+- **t2.micro (free tier):** $0/month for first year
+- **t2.medium with credits:** ~$30-35/month from your credits
+- **t2.large with credits:** ~$60-70/month from your credits
+- **30GB storage:** ~$3/month from your credits
+- **Data transfer:** Usually free for first 15GB/month
+
+### Tips to Maximize Credits:
+1. **Use t2.medium** (good balance of performance and cost)
+2. **Stop instance at night** if not needed 24/7:
+   ```bash
+   # Stop from AWS Console: EC2 > Instances > Instance State > Stop
+   # Or use AWS CLI:
+   aws ec2 stop-instances --instance-ids i-xxxxxxxxxxxxx
+   ```
+3. **Use CloudWatch alarms** to auto-stop when idle
+4. **Clean up logs** regularly:
+   ```bash
+   sudo journalctl --vacuum-time=7d
+   ```
+5. **Monitor credit balance** weekly
 
 ---
 
@@ -481,3 +514,148 @@ sudo systemctl restart midday-meal-backend midday-meal-frontend nginx postgresql
 - [ ] Face recognition working (test with uploaded student photo)
 
 🎉 **Your Smart Mid-Day Meal System is now live on AWS!**
+
+
+---
+
+## AWS Credits & Free Tier FAQ
+
+### Q: How do I check my remaining credits?
+**A:** AWS Console > Billing Dashboard > Credits
+- View total credits
+- View expiration date
+- View usage by service
+
+### Q: Which instance should I choose with AWS credits?
+**A:** 
+- **Educational/Testing:** t2.medium (best balance)
+- **Production/Demo:** t2.large (better for face recognition)
+- **Tight budget:** t2.micro (free tier, but slow)
+
+### Q: How long will my credits last?
+**A:** Depends on instance type:
+- $100 credits with t2.medium 24/7 = ~3 months
+- $100 credits with t2.large 24/7 = ~1.5 months
+- $100 credits with t2.medium 8hrs/day = ~9 months
+
+### Q: What happens when credits run out?
+**A:** 
+1. AWS starts charging your credit card
+2. You'll receive email notification when credits are low
+3. Set up billing alerts to get notified at 50%, 75%, 90% usage
+
+### Q: Can I upgrade/downgrade instance later?
+**A:** Yes!
+```bash
+# From AWS Console:
+1. Stop instance
+2. Actions > Instance Settings > Change Instance Type
+3. Select new type (t2.micro, t2.medium, t2.large, etc.)
+4. Start instance
+```
+
+### Q: How to set up billing alerts?
+**A:**
+1. AWS Console > Billing Dashboard > Billing preferences
+2. Enable "Receive Billing Alerts"
+3. Go to CloudWatch > Alarms > Create Alarm
+4. Set threshold (e.g., alert when charges > $50)
+5. Add your email
+
+### Q: Free tier vs AWS Credits - what's the difference?
+**A:**
+- **Free Tier:** Automatic for first 12 months, limited to t2.micro
+- **AWS Credits:** Can use on any instance type, expires based on terms
+- **You can use both together!** (Credits applied first, then free tier)
+
+### Q: Best practices for AWS credits?
+**A:**
+1. ✅ Choose t2.medium or t2.large (your credits cover it)
+2. ✅ Monitor usage weekly
+3. ✅ Stop instance when not demoing
+4. ✅ Set billing alarms at 50% and 80%
+5. ✅ Clean up unused resources (snapshots, volumes)
+6. ❌ Don't use expensive services (GPU instances, high IOPS storage)
+
+### Q: How to stop/start instance to save credits?
+**A:**
+```bash
+# Stop instance (saves credits, data persists)
+AWS Console > EC2 > Select Instance > Instance State > Stop
+
+# Start instance when needed
+AWS Console > EC2 > Select Instance > Instance State > Start
+
+# Schedule auto stop/start with Lambda (advanced)
+# Stops at 11 PM, starts at 8 AM on weekdays
+```
+
+### Q: Will I lose data if I stop the instance?
+**A:** No! Data on EBS volumes persists. You only lose:
+- RAM contents (obviously)
+- Public IP (unless you use Elastic IP - costs extra)
+- Active connections/sessions
+
+---
+
+## 🎓 Recommended Setup for AWS Credits
+
+### If you have $50-100 in credits:
+
+**Development/Testing Setup:**
+```
+Instance: t2.medium
+Storage: 30 GB gp3
+Region: Your nearest region
+Uptime: Stop at night (8AM-11PM = 15hrs/day)
+Estimated duration: 6-9 months
+```
+
+**Production/Demo Setup:**
+```
+Instance: t2.large
+Storage: 50 GB gp3
+Region: Your nearest region
+Uptime: 24/7 for demos
+Estimated duration: 1.5-2 months
+```
+
+### If you have $200+ in credits:
+
+**Full Production Setup:**
+```
+Instance: t2.large or t3.medium
+Storage: 50 GB gp3
+Add: RDS PostgreSQL (db.t3.micro)
+Add: Elastic IP (static IP)
+Add: CloudWatch monitoring
+Estimated duration: 3-4 months of 24/7 operation
+```
+
+### 💡 Pro Tip:
+Start with **t2.medium** and run 24/7 for the first month. If performance is good, keep it. If face recognition is slow during peak loads, upgrade to **t2.large**. Monitor your credit balance weekly!
+
+---
+
+## Instance Size Comparison for Your App
+
+| Instance | vCPU | RAM | Face Recognition | Cost/month | Recommended |
+|----------|------|-----|------------------|------------|-------------|
+| t2.micro | 1 | 1GB | ⚠️ Slow (30s+) | FREE* | Testing only |
+| t2.small | 1 | 2GB | ⚠️ Slow (15s+) | $17 | Not recommended |
+| t2.medium | 2 | 4GB | ✅ Good (5-10s) | $34 | **Best for credits** |
+| t2.large | 2 | 8GB | ✅ Fast (2-5s) | $68 | Best performance |
+| t3.medium | 2 | 4GB | ✅ Good (4-8s) | $30 | Alternative |
+
+*Free tier first 12 months
+
+**Your app needs:**
+- PostgreSQL database (~500MB RAM)
+- Python backend with face recognition (~1-2GB RAM)
+- Node.js frontend (~500MB RAM)
+- System + buffers (~500MB RAM)
+
+**Minimum viable:** t2.medium (4GB total)
+**Recommended:** t2.large (8GB total) for smooth face recognition
+
+Choose based on your credits balance and demo needs! 🚀
