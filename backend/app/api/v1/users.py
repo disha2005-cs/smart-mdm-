@@ -9,7 +9,7 @@ from app.api import deps
 from app.database import get_db
 from app.models.user import User, UserRole
 from app.models.school import School
-from app.schemas.user import UserCreate, UserResponse, UserWithSchool, AdminCreatedResponse
+from app.schemas.user import UserCreate, UserUpdate, UserResponse, UserWithSchool, AdminCreatedResponse
 from app.core.security import get_password_hash
 
 router = APIRouter()
@@ -187,13 +187,7 @@ def create_school_admin(
 def update_user(
     *,
     user_id: int,
-    first_name: str = None,
-    last_name: str = None,
-    email: str = None,
-    phone: str = None,
-    password: str = None,
-    designation: str = None,
-    is_active: bool = None,
+    user_in: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_gov_admin)
 ):
@@ -201,31 +195,35 @@ def update_user(
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    # Update fields
-    if first_name is not None:
-        user.first_name = first_name
-    if last_name is not None:
-        user.last_name = last_name
-    if email is not None:
-        # Check if email is already taken by another user
-        existing = db.query(User).filter(User.email == email, User.id != user_id).first()
+
+    update_data = user_in.model_dump(exclude_unset=True)
+
+    if "email" in update_data and update_data["email"] is not None:
+        existing = db.query(User).filter(
+            User.email == update_data["email"], User.id != user_id
+        ).first()
         if existing:
             raise HTTPException(status_code=400, detail="Email already registered")
-        user.email = email
-    if phone is not None:
-        user.phone = phone
+        user.email = update_data["email"]
+
+    if "first_name" in update_data:
+        user.first_name = update_data["first_name"]
+    if "last_name" in update_data:
+        user.last_name = update_data["last_name"]
+    if "phone" in update_data:
+        user.phone = update_data["phone"]
+    if "designation" in update_data:
+        user.designation = update_data["designation"]
+    if "is_active" in update_data:
+        user.is_active = update_data["is_active"]
+
+    password = update_data.get("password")
     if password is not None and password.strip():
-        # Update password if provided
         user.password_hash = get_password_hash(password)
-    if designation is not None:
-        user.designation = designation
-    if is_active is not None:
-        user.is_active = is_active
-    
+
     db.commit()
     db.refresh(user)
-    
+
     return user
 
 @router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)

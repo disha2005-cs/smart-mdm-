@@ -33,6 +33,68 @@ class FaceRecognitionService:
             logger.error(f"Failed to initialize face recognition model: {e}")
             raise
     
+    def generate_encoding_from_bytes(self, image_bytes: bytes) -> Optional[np.ndarray]:
+        """Generate face encoding from raw image bytes."""
+        try:
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                logger.error("Failed to decode image bytes")
+                return None
+
+            faces = self.app.get(img)
+            if len(faces) == 0:
+                logger.warning("No face detected in image bytes")
+                return None
+
+            largest_face = max(
+                faces,
+                key=lambda face: (face.bbox[2] - face.bbox[0]) * (face.bbox[3] - face.bbox[1]),
+            )
+            encoding = self.normalize_encoding(largest_face.embedding)
+            logger.info("Successfully generated encoding from image bytes")
+            return encoding
+        except Exception as e:
+            logger.error(f"Error generating encoding from bytes: {e}")
+            return None
+
+    @staticmethod
+    def normalize_encoding(encoding: np.ndarray) -> np.ndarray:
+        """L2-normalize a face embedding for consistent cosine similarity."""
+        norm = np.linalg.norm(encoding)
+        if norm > 0:
+            return encoding / norm
+        return encoding
+
+    def parse_stored_encoding(self, encoding_data) -> Optional[np.ndarray]:
+        """
+        Parse face encoding from database storage.
+        Supports JSONB float lists (512 dims) and legacy base64 strings.
+        """
+        if encoding_data is None:
+            return None
+
+        try:
+            if isinstance(encoding_data, str):
+                arr = self.base64_to_encoding(encoding_data)
+            elif isinstance(encoding_data, list):
+                arr = np.array(encoding_data, dtype=np.float32)
+            else:
+                return None
+
+            if arr.size != 512:
+                logger.warning(f"Unexpected encoding size: {arr.size}")
+                return None
+
+            return self.normalize_encoding(arr)
+        except Exception as e:
+            logger.error(f"Failed to parse stored encoding: {e}")
+            return None
+
+    def encoding_to_list(self, encoding: np.ndarray) -> list:
+        """Convert encoding to JSON-serializable list for database storage."""
+        return self.normalize_encoding(encoding).tolist()
+
     def generate_encoding_from_file(self, image_path: str) -> Optional[np.ndarray]:
         """
         Generate face encoding from an image file
@@ -68,7 +130,7 @@ class FaceRecognitionService:
             largest_face = max(faces, key=lambda face: (face.bbox[2] - face.bbox[0]) * (face.bbox[3] - face.bbox[1]))
             
             # Return the embedding (512-d vector)
-            encoding = largest_face.embedding
+            encoding = self.normalize_encoding(largest_face.embedding)
             logger.info(f"Successfully generated encoding from {image_path}")
             return encoding
             
@@ -106,7 +168,7 @@ class FaceRecognitionService:
             # Get the largest face
             largest_face = max(faces, key=lambda face: (face.bbox[2] - face.bbox[0]) * (face.bbox[3] - face.bbox[1]))
             
-            encoding = largest_face.embedding
+            encoding = self.normalize_encoding(largest_face.embedding)
             logger.info("Successfully generated encoding from base64 image")
             return encoding
             
@@ -159,7 +221,7 @@ class FaceRecognitionService:
                 quality_score = face.det_score * (min(size_ratio * 20, 1.0))
                 
                 result.append({
-                    'encoding': face.embedding,
+                    'encoding': self.normalize_encoding(face.embedding),
                     'bbox': face.bbox.tolist(),  # [x1, y1, x2, y2]
                     'confidence': float(face.det_score),
                     'quality': float(quality_score)
@@ -225,10 +287,10 @@ class FaceRecognitionService:
             best_match_id = None
             best_similarity = 0.0
             
-            target = target_encoding.reshape(1, -1)
+            target = self.normalize_encoding(target_encoding).reshape(1, -1)
             
             for student_id, encoding in known_encodings:
-                enc = encoding.reshape(1, -1)
+                enc = self.normalize_encoding(encoding).reshape(1, -1)
                 similarity = cosine_similarity(target, enc)[0][0]
                 
                 if similarity > best_similarity and similarity >= threshold:

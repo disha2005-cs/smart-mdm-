@@ -239,12 +239,14 @@ async def update_student(
     """
     Update student. If photo is uploaded, regenerate face encoding. Photos stored in database.
     """
+    from app.models.user import UserRole
+    
     student = db.query(StudentModel).filter(StudentModel.id == id).first()
     if not student:
         raise HTTPException(status_code=404, detail="Student not found")
     
     # Verify student belongs to admin's school
-    if student.school_id != current_user.school_id:
+    if current_user.role == UserRole.SCHOOL and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
     # Handle photo upload if provided

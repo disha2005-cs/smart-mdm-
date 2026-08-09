@@ -22,6 +22,16 @@ class UserCreate(BaseModel):
     school_id: int  # Required for school admin
     designation: Optional[str] = "School Administrator"
 
+# Update User (for editing school admin)
+class UserUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    password: Optional[str] = None
+    designation: Optional[str] = None
+    is_active: Optional[bool] = None
+
 # User Response
 class UserResponse(BaseModel):
     id: int
