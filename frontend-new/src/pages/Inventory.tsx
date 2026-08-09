@@ -115,10 +115,10 @@ const Inventory = () => {
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Delete this inventory item?')) return;
     try {
-      await inventoryAPI.delete(Number(id));
+      await inventoryAPI.delete(id);
       await fetchItems();
     } catch (err: any) {
       console.error('Error deleting inventory item:', err);

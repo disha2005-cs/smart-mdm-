@@ -4,22 +4,7 @@ import Layout from '../components/Layout';
 import { Users, ChevronRight, Calendar, CheckCircle, XCircle, ArrowLeft, Plus, X, Camera, Edit, Trash2 } from 'lucide-react';
 import { studentsAPI, attendanceAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
-
-interface Student {
-  id: number;
-  student_id: string;
-  first_name: string;
-  last_name: string;
-  date_of_birth?: string;
-  gender?: string;
-  grade?: string;
-  section?: string;
-  parent_name?: string;
-  parent_phone?: string;
-  has_allergies: boolean;
-  school_id: number;
-  is_active: boolean;
-}
+import type { Student } from '../types';
 
 interface AttendanceRecord {
   id: number;

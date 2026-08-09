@@ -2,73 +2,125 @@
 node_modules/
 frontend-new/node_modules/
 backend/venv/
-backend/__pycache__/
-backend/app/__pycache__/
-backend/app/**/__pycache__/
+backend/env/
+*.egg-info/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
 
 # Build outputs
 frontend-new/dist/
 frontend-new/build/
 frontend-new/.vite/
+backend/dist/
+backend/build/
 
-# Database
+# Database files
 *.db
 *.sqlite
 *.sqlite3
 backend/app.db
 
-# Environment variables
+# Environment variables (NEVER commit these!)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
 backend/.env
+frontend-new/.env
+!frontend-new/.env.example
 
-# IDE
+# IDE and Editor
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+*.sublime-project
+*.sublime-workspace
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 desktop.ini
 
 # Logs
 *.log
+logs/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-logs/
+pnpm-debug.log*
+lerna-debug.log*
+pip-log.txt
 
-# Python
-*.pyc
-*.pyo
-*.pyd
-__pycache__/
-*.so
-*.egg
-*.egg-info/
-dist/
-build/
+# Testing
+coverage/
+.coverage
+.pytest_cache/
+.nyc_output/
+htmlcov/
+.tox/
+.hypothesis/
+
+# Uploads and user data
+backend/uploads/
+!backend/uploads/.gitkeep
+*.jpeg
+*.jpg
+*.png
+*.gif
+*.pdf
+!public/**/*.png
+!public/**/*.jpg
+!public/**/*.jpeg
+!public/**/*.gif
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
 
 # Old/Backup folders
 frontend/
 frontend_old*/
 web-frontend/
 
+# Alembic migrations (keep structure, ignore compiled)
+backend/alembic/versions/__pycache__/
+
 # Electron
 frontend-new/out/
 frontend-new/.webpack/
 
-# Testing
-coverage/
-.nyc_output/
+# Package manager locks (optional - uncomment if not committing)
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
 
-# Misc
+# AWS and deployment
+.aws/
+*.pem
+*.key
+!*.example.pem
+
+# SSL certificates
+*.crt
+*.cer
+*.p12
+*.pfx
+
+# Local development
+.local/
 .cache/
-temp/
-tmp/

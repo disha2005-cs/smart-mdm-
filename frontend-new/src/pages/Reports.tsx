@@ -18,6 +18,7 @@ import {
 } from 'recharts';
 import { reportsAPI, studentsAPI, inventoryAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
+import type { InventoryItem, Student } from '../types';
 
 interface DailyMeal {
   id: number;
@@ -26,22 +27,6 @@ interface DailyMeal {
   rice_consumed: number;
   wheat_consumed: number;
   dal_consumed: number;
-}
-
-interface InventoryItem {
-  id: number;
-  item_name: string;
-  quantity: number;
-  unit: string;
-  threshold: number;
-}
-
-interface Student {
-  id: number;
-  student_id: string;
-  first_name: string;
-  last_name: string;
-  is_active: boolean;
 }
 
 const reportTypes = [

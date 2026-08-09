@@ -1,5 +1,5 @@
 export interface School {
-  id: string;
+  id: number;
   udise_code: string;
   school_name: string;
   district: string;
@@ -19,9 +19,9 @@ export interface School {
 }
 
 export interface Student {
-  id: string;
+  id: number;
   student_id: string;
-  school_id: string;
+  school_id: number;
   first_name: string;
   last_name: string;
   date_of_birth: string | null;
@@ -33,13 +33,14 @@ export interface Student {
   has_allergies: boolean;
   dietary_preferences: string | null;
   is_active: boolean;
+  photo_path: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export interface InventoryItem {
-  id: string;
-  school_id: string;
+  id: number;
+  school_id: number;
   item_name: string;
   category: string;
   quantity: number;
@@ -52,8 +53,8 @@ export interface InventoryItem {
 }
 
 export interface Alert {
-  id: string;
-  school_id: string;
+  id: number;
+  school_id: number;
   alert_type: string;
   message: string;
   status: string;
@@ -61,8 +62,8 @@ export interface Alert {
 }
 
 export interface DailyMeal {
-  id: string;
-  school_id: string;
+  id: number;
+  school_id: number;
   date: string;
   total_students_present: number;
   rice_consumed: number;

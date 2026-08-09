@@ -44,7 +44,7 @@ export default function FaceRecognitionCamera({
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const detectionIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isCameraActiveRef = useRef<boolean>(false); // Use ref for interval closure
 
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -88,6 +88,7 @@ export default function FaceRecognitionCamera({
             console.log(`Video dimensions: ${videoRef.current.videoWidth}x${videoRef.current.videoHeight}`);
             
             // NOW set camera active AFTER video is ready
+            isCameraActiveRef.current = true; // Update ref
             setIsCameraActive(true);
             console.log('✓ Camera state set to active');
             
@@ -118,6 +119,7 @@ export default function FaceRecognitionCamera({
       clearInterval(detectionIntervalRef.current);
       detectionIntervalRef.current = null;
     }
+    isCameraActiveRef.current = false; // Update ref
     setIsCameraActive(false);
     setDetectedFaces([]);
     setAttendanceMarked(false);
@@ -196,6 +198,7 @@ export default function FaceRecognitionCamera({
       
       if (response.data.faces_detected > 0) {
         console.log(`✓ Detected ${response.data.faces_detected} face(s)`);
+        console.log('Face details:', JSON.stringify(response.data.faces, null, 2));
         setDetectedFaces(response.data.faces);
         
         // Auto-mark attendance if enabled and face is matched
@@ -280,36 +283,62 @@ export default function FaceRecognitionCamera({
 
   // Draw bounding boxes on canvas overlay
   const drawBoundingBoxes = () => {
-    if (!canvasRef.current || !videoRef.current || detectedFaces.length === 0) return;
+    console.log('🎨 drawBoundingBoxes function called');
+    if (!canvasRef.current || !videoRef.current || detectedFaces.length === 0) {
+      console.log('❌ Cannot draw:', {
+        hasCanvas: !!canvasRef.current,
+        hasVideo: !!videoRef.current,
+        facesCount: detectedFaces.length
+      });
+      return;
+    }
 
     const canvas = canvasRef.current;
     const video = videoRef.current;
     const context = canvas.getContext('2d');
 
-    if (!context) return;
+    if (!context) {
+      console.log('❌ No canvas context');
+      return;
+    }
+    
+    console.log('✏️ Drawing boxes for', detectedFaces.length, 'face(s)');
+    console.log('Canvas dimensions:', canvas.width, 'x', canvas.height);
+    console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
 
     // Clear previous drawings
     context.clearRect(0, 0, canvas.width, canvas.height);
 
     // Draw boxes for each detected face
-    detectedFaces.forEach(face => {
+    detectedFaces.forEach((face, idx) => {
       const [x1, y1, x2, y2] = face.bbox;
       const width = x2 - x1;
       const height = y2 - y1;
 
+      console.log(`Face ${idx} bbox:`, { x1, y1, x2, y2, width, height });
+
       // Scale coordinates to canvas size
       const scaleX = canvas.width / video.videoWidth;
       const scaleY = canvas.height / video.videoHeight;
+
+      console.log('Scale factors:', { scaleX, scaleY });
 
       const scaledX = x1 * scaleX;
       const scaledY = y1 * scaleY;
       const scaledWidth = width * scaleX;
       const scaledHeight = height * scaleY;
 
+      console.log(`Face ${idx} scaled coords:`, { scaledX, scaledY, scaledWidth, scaledHeight });
+
       // Set color based on match status
-      context.strokeStyle = face.matched ? '#10b981' : '#ef4444';
+      const color = face.matched ? '#10b981' : '#ef4444';
+      console.log(`Drawing ${color} box for face ${idx}`);
+      
+      context.strokeStyle = color;
       context.lineWidth = 3;
       context.strokeRect(scaledX, scaledY, scaledWidth, scaledHeight);
+      
+      console.log(`✅ Drew rectangle at (${scaledX}, ${scaledY}) with size ${scaledWidth}x${scaledHeight}`);
 
       // Draw label
       if (face.student) {
@@ -329,7 +358,11 @@ export default function FaceRecognitionCamera({
 
   // Update bounding boxes when faces change
   useEffect(() => {
-    if (isCameraActive) {
+    console.log('🎨 useEffect triggered - drawing boxes');
+    console.log(`  - isCameraActive: ${isCameraActive}`);
+    console.log(`  - detectedFaces.length: ${detectedFaces.length}`);
+    if (isCameraActive && detectedFaces.length > 0) {
+      console.log('✏️ Calling drawBoundingBoxes...');
       drawBoundingBoxes();
     }
   }, [detectedFaces, isCameraActive]);

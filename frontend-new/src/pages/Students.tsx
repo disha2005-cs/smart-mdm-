@@ -54,9 +54,10 @@ const avatarTints = [
   'from-rose-400 to-rose-600',
   'from-cyan-400 to-cyan-600',
 ];
-const tintFor = (id: string) => {
+const tintFor = (id: string | number) => {
+  const idStr = String(id);
   let sum = 0;
-  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i);
+  for (let i = 0; i < idStr.length; i++) sum += idStr.charCodeAt(i);
   return avatarTints[sum % avatarTints.length];
 };
 
@@ -184,14 +185,15 @@ const Students = () => {
       parent_name: student.parent_name ?? '',
       parent_phone: student.parent_phone ?? '',
       has_allergies: student.has_allergies,
+      photo: null,
     });
     setShowModal(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Are you sure you want to delete this student?')) return;
     try {
-      await studentsAPI.delete(Number(id));
+      await studentsAPI.delete(id);
       await fetchStudents();
     } catch (err: any) {
       console.error('Error deleting student:', err);
