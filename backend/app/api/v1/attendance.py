@@ -102,9 +102,9 @@ async def detect_faces_in_frame(
             )
             
             face_info = {
-                'bbox': bbox,
-                'detection_confidence': confidence,
-                'quality': face_data.get('quality', 0.0)  # Include quality score
+                'bbox': [float(x) for x in bbox],  # Convert numpy.float32 to Python float
+                'detection_confidence': float(confidence),
+                'quality': float(face_data.get('quality', 0.0))  # Include quality score
             }
             
             if match_result:
@@ -119,7 +119,7 @@ async def detect_faces_in_frame(
                     'grade': student.grade,
                     'section': student.section
                 }
-                face_info['match_confidence'] = similarity
+                face_info['match_confidence'] = float(similarity)  # Convert to Python float
             else:
                 face_info['matched'] = False
                 face_info['student'] = None
