@@ -7,16 +7,24 @@ from typing import Optional
 
 class S3Service:
     def __init__(self):
-        self.s3_client = boto3.client(
-            's3',
-            aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
-            aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-            region_name=os.getenv('AWS_REGION', 'us-east-1')
-        )
+        # Get credentials from environment
+        aws_access_key = os.getenv('AWS_ACCESS_KEY_ID')
+        aws_secret_key = os.getenv('AWS_SECRET_ACCESS_KEY')
+        aws_region = os.getenv('AWS_REGION', 'us-east-1')
         self.bucket_name = os.getenv('AWS_S3_BUCKET')
         
         if not self.bucket_name:
             raise ValueError("AWS_S3_BUCKET environment variable not set")
+        
+        if not aws_access_key or not aws_secret_key:
+            raise ValueError("AWS credentials not set")
+        
+        self.s3_client = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=aws_region
+        )
     
     def upload_photo(self, file_content: bytes, content_type: str, student_id: str) -> Optional[str]:
         """
