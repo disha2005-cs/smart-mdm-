@@ -7,6 +7,7 @@ from app.api import deps
 from app.database import get_db
 from app.models.daily_meal import DailyMeal
 from app.schemas.report import DailyReportRow, ReportsSummary
+from app.models.user import UserRole
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ def get_reports_summary(
 ):
     query = db.query(DailyMeal)
 
-    if current_user.role == "SCHOOL":
+    if current_user.role == UserRole.SCHOOL:
         query = query.filter(DailyMeal.school_id == current_user.school_id)
 
     reports = (

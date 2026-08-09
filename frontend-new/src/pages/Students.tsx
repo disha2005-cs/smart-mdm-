@@ -149,17 +149,31 @@ const Students = () => {
     setError('');
 
     try {
-      const payload = {
-        ...form,
-        date_of_birth: form.date_of_birth || null,
-        school_id: schoolId,
-      };
+      const formData = new FormData();
+      formData.append('first_name', form.first_name);
+      formData.append('last_name', form.last_name);
+      formData.append('date_of_birth', form.date_of_birth || '');
+      formData.append('gender', form.gender || 'Male');
+      formData.append('grade', form.grade || '1');
+      formData.append('section', form.section || 'A');
+      formData.append('parent_name', form.parent_name || '');
+      formData.append('parent_phone', form.parent_phone || '');
+      formData.append('school_id', schoolId.toString());
+      formData.append('has_allergies', form.has_allergies.toString());
+      
+      if (!editing) {
+        const studentId = `STU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        formData.append('student_id', studentId);
+      }
+      
+      if (form.photo) {
+        formData.append('photo', form.photo);
+      }
 
       if (editing) {
-        await studentsAPI.update(editing.id, payload);
+        await studentsAPI.update(editing.id, formData);
       } else {
-        const studentId = `STU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        await studentsAPI.create({ ...payload, student_id: studentId });
+        await studentsAPI.create(formData);
       }
 
       await fetchStudents();

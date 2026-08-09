@@ -6,6 +6,7 @@ from app.database import get_db
 from app.api import deps
 from app.schemas.inventory import Inventory, InventoryCreate, InventoryUpdate
 from app.models.inventory import Inventory as InventoryModel
+from app.models.user import UserRole
 
 router = APIRouter()
 
@@ -47,7 +48,7 @@ def read_inventory(
     """
     query = db.query(InventoryModel)
     
-    if current_user.role == "SCHOOL":
+    if current_user.role == UserRole.SCHOOL:
         query = query.filter(InventoryModel.school_id == current_user.school_id)
         
     items = query.offset(skip).limit(limit).all()

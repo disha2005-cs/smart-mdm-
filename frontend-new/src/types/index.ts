@@ -14,6 +14,10 @@ export interface School {
   latitude: number | null;
   longitude: number | null;
   status: string;
+  is_active?: boolean;
+  has_admin?: boolean;
+  admin_name?: string | null;
+  admin_employee_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -44,14 +48,10 @@ export interface InventoryItem {
   id: number;
   school_id: number;
   item_name: string;
-  category: string;
   quantity: number;
   unit: string;
   threshold: number;
-  supplier: string | null;
-  cost_per_unit: number | null;
   last_updated: string;
-  created_at: string;
 }
 
 export interface Alert {
@@ -78,7 +78,7 @@ export type StudentInput = Omit<Student, 'id' | 'created_at' | 'updated_at' | 's
   school_id?: string;
 };
 
-export type InventoryInput = Omit<InventoryItem, 'id' | 'last_updated' | 'created_at' | 'school_id'> & {
+export type InventoryInput = Omit<InventoryItem, 'id' | 'last_updated' | 'school_id'> & {
   school_id?: string;
 };
 

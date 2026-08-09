@@ -113,7 +113,7 @@ export const reportsAPI = {
 // Alerts API
 export const alertsAPI = {
   getAll: () => api.get('/alerts'),
-  markRead: (id: number) => api.put(`/alerts/${id}/read`),
+  markRead: (id: number) => api.put(`/alerts/${id}`, { status: 'READ' }),
 };
 
 // Users API

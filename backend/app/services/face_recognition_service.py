@@ -205,7 +205,7 @@ class FaceRecognitionService:
         self, 
         target_encoding: np.ndarray, 
         known_encodings: List[Tuple[int, np.ndarray]], 
-        threshold: float = 0.6  # Increased from 0.4 to 0.6 for higher accuracy (60% similarity)
+        threshold: float = 0.4  # Standardized threshold (40% similarity)
     ) -> Optional[Tuple[int, float]]:
         """
         Find the best matching face from a list of known encodings
