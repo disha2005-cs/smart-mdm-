@@ -108,7 +108,7 @@ const Attendance = () => {
           <div className="lg:col-span-1">
             <FaceRecognitionCamera 
               onAttendanceMarked={handleAttendanceMarked}
-              autoMark={false}
+              autoMark={true}
             />
           </div>
 

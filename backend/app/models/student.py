@@ -18,8 +18,9 @@ class Student(Base):
     parent_name = Column(String)
     parent_phone = Column(String)
     photo_path = Column(String)  # DEPRECATED: Kept for backward compatibility
-    photo_data = Column(LargeBinary)  # Store actual photo in database
-    photo_mime_type = Column(String)  # Store image type (image/jpeg, image/png)
+    photo_data = Column(LargeBinary)  # DEPRECATED: Moving to S3
+    photo_mime_type = Column(String)  # DEPRECATED: Moving to S3
+    photo_url = Column(String)  # NEW: S3 public URL
     has_allergies = Column(Boolean, default=False)
     dietary_preferences = Column(String)
     is_active = Column(Boolean, default=True)

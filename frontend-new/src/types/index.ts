@@ -37,7 +37,8 @@ export interface Student {
   has_allergies: boolean;
   dietary_preferences: string | null;
   is_active: boolean;
-  photo_path: string | null;
+  photo_path: string | null;  // DEPRECATED
+  photo_url: string | null;  // S3 public URL
   has_photo?: boolean;  // Indicates if photo is stored
   created_at: string;
   updated_at: string;

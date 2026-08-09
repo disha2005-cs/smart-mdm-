@@ -259,7 +259,7 @@ export default function FaceRecognitionCamera({
       const response = await attendanceAPI.markAttendance(frame);
       
       setSuccessMessage(
-        `Attendance marked for ${response.data.student.name} (Confidence: ${response.data.confidence_score.toFixed(1)}%)`
+        `✅ Attendance marked for ${response.data.student.name} (Confidence: ${response.data.confidence_score.toFixed(1)}%)`
       );
       setAttendanceMarked(true);
       
@@ -274,8 +274,15 @@ export default function FaceRecognitionCamera({
       }, 3000);
 
     } catch (err: any) {
-      const errorMsg = err.response?.data?.detail || 'Failed to mark attendance';
-      setError(errorMsg);
+      const errorDetail = err.response?.data?.detail || 'Failed to mark attendance';
+      
+      // Check if it's a duplicate attendance error
+      if (errorDetail.includes('already marked') || errorDetail.includes('Attendance already')) {
+        setError(`⚠️ ${errorDetail}`);
+        setAttendanceMarked(true);  // Prevent further attempts
+      } else {
+        setError(errorDetail);
+      }
     } finally {
       setIsProcessing(false);
     }

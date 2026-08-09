@@ -14,10 +14,11 @@ from app.schemas.student import Student, StudentCreate, StudentUpdate
 from app.models.student import Student as StudentModel
 from app.models.face_encoding import FaceEncoding as FaceEncodingModel
 from app.services.face_recognition_service import get_face_recognition_service
+from app.services.s3_service import get_s3_service
 
 router = APIRouter()
 
-# Upload directory for student photos (kept for backward compatibility)
+# Upload directory for student photos (for temp storage only)
 UPLOAD_DIR = Path("uploads/students")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -38,12 +39,11 @@ async def create_student(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Create new student with optional photo upload. Photos are stored in database.
+    Create new student with optional photo upload. Photos are stored in AWS S3.
     If photo is provided, automatically generate face encoding.
     """
     # Handle photo upload if provided
-    photo_data = None
-    photo_mime_type = None
+    photo_url = None
     temp_file_path = None
     
     if photo:
@@ -54,8 +54,13 @@ async def create_student(
             
             # Read photo data into memory
             contents = await photo.read()
-            photo_data = contents
-            photo_mime_type = photo.content_type
+            
+            # Upload to S3
+            s3_service = get_s3_service()
+            photo_url = s3_service.upload_photo(contents, photo.content_type, student_id)
+            
+            if not photo_url:
+                raise HTTPException(status_code=500, detail="Failed to upload photo to S3")
             
             # Save to temp file for face encoding generation
             file_extension = photo.filename.split('.')[-1]
@@ -65,11 +70,13 @@ async def create_student(
             with open(temp_file_path, 'wb') as f:
                 f.write(contents)
             
-            logger.info(f"Photo uploaded and stored in database")
+            logger.info(f"Photo uploaded to S3: {photo_url}")
             
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error uploading photo: {e}")
-            raise HTTPException(status_code=500, detail="Error uploading photo")
+            raise HTTPException(status_code=500, detail=f"Error uploading photo: {str(e)}")
     
     # Create student record
     student = StudentModel(
@@ -82,8 +89,7 @@ async def create_student(
         grade=grade if grade else None,
         parent_name=parent_name if parent_name else None,
         parent_phone=parent_phone if parent_phone else None,
-        photo_data=photo_data,
-        photo_mime_type=photo_mime_type
+        photo_url=photo_url
     )
     db.add(student)
     db.flush()  # Get the student.id before commit
@@ -173,7 +179,7 @@ def read_students(
         
     students = query.offset(skip).limit(limit).all()
     
-    # Add has_photo field to response
+    # Add has_photo field and photo_url to response
     result = []
     for student in students:
         student_dict = {
@@ -189,12 +195,13 @@ def read_students(
             "parent_name": student.parent_name,
             "parent_phone": student.parent_phone,
             "photo_path": student.photo_path,
+            "photo_url": student.photo_url,  # S3 URL
             "has_allergies": student.has_allergies,
             "dietary_preferences": student.dietary_preferences,
             "is_active": student.is_active,
             "created_at": student.created_at,
             "updated_at": student.updated_at,
-            "has_photo": bool(student.photo_data or student.photo_path)  # Add indicator
+            "has_photo": bool(student.photo_url or student.photo_data or student.photo_path)
         }
         result.append(student_dict)
     
@@ -218,7 +225,7 @@ def read_student(
     if current_user.role == UserRole.SCHOOL and student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Return as dict with has_photo field
+    # Return as dict with has_photo field and photo_url
     return {
         "id": student.id,
         "student_id": student.student_id,
@@ -232,12 +239,13 @@ def read_student(
         "parent_name": student.parent_name,
         "parent_phone": student.parent_phone,
         "photo_path": student.photo_path,
+        "photo_url": student.photo_url,  # S3 URL
         "has_allergies": student.has_allergies,
         "dietary_preferences": student.dietary_preferences,
         "is_active": student.is_active,
         "created_at": student.created_at,
         "updated_at": student.updated_at,
-        "has_photo": bool(student.photo_data or student.photo_path)
+        "has_photo": bool(student.photo_url or student.photo_data or student.photo_path)
     }
 
 
@@ -257,7 +265,7 @@ async def update_student(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Update student. If photo is uploaded, regenerate face encoding. Photos stored in database.
+    Update student. If photo is uploaded, regenerate face encoding. Photos stored in AWS S3.
     """
     from app.models.user import UserRole
     
@@ -272,6 +280,7 @@ async def update_student(
     # Handle photo upload if provided
     photo_updated = False
     temp_file_path = None
+    old_photo_url = student.photo_url
     
     if photo:
         try:
@@ -281,8 +290,15 @@ async def update_student(
             
             # Read photo data into memory
             contents = await photo.read()
-            student.photo_data = contents
-            student.photo_mime_type = photo.content_type
+            
+            # Upload to S3
+            s3_service = get_s3_service()
+            photo_url = s3_service.upload_photo(contents, photo.content_type, student.student_id)
+            
+            if not photo_url:
+                raise HTTPException(status_code=500, detail="Failed to upload photo to S3")
+            
+            student.photo_url = photo_url
             
             # Save to temp file for face encoding generation
             file_extension = photo.filename.split('.')[-1]
@@ -293,11 +309,17 @@ async def update_student(
                 f.write(contents)
             
             photo_updated = True
-            logger.info(f"Photo updated for student {student.student_id}")
+            logger.info(f"Photo updated for student {student.student_id}: {photo_url}")
             
+            # Delete old photo from S3 if it exists
+            if old_photo_url:
+                s3_service.delete_photo(old_photo_url)
+            
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error uploading photo: {e}")
-            raise HTTPException(status_code=500, detail="Error uploading photo")
+            raise HTTPException(status_code=500, detail=f"Error uploading photo: {str(e)}")
     
     # Update other fields if provided
     if first_name is not None:
