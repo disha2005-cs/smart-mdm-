@@ -492,7 +492,21 @@ def delete_student(
     if student.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
     
-    # Delete face encoding first (if exists)
+    # Delete S3 photo if exists
+    if student.photo_url:
+        try:
+            s3_service = get_s3_service()
+            s3_service.delete_photo(student.photo_url)
+            logger.info(f"Deleted S3 photo for student {student.student_id}")
+        except Exception as e:
+            logger.warning(f"Failed to delete S3 photo: {e}")
+    
+    # Delete attendance records first
+    from app.models.attendance import Attendance
+    db.query(Attendance).filter(Attendance.student_id == id).delete()
+    db.flush()
+    
+    # Delete face encoding (if exists)
     face_encoding = db.query(FaceEncodingModel).filter(
         FaceEncodingModel.student_id == id
     ).first()
