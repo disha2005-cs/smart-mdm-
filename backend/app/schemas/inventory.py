@@ -4,16 +4,24 @@ from datetime import date, datetime
 
 class InventoryBase(BaseModel):
     item_name: str
+    category: str = "Other"
     quantity: float
     unit: str
     threshold: float
+    supplier: Optional[str] = None
+    cost_per_unit: Optional[float] = None
 
 class InventoryCreate(InventoryBase):
-    pass
+    school_id: int
 
 class InventoryUpdate(BaseModel):
+    item_name: Optional[str] = None
+    category: Optional[str] = None
     quantity: Optional[float] = None
+    unit: Optional[str] = None
     threshold: Optional[float] = None
+    supplier: Optional[str] = None
+    cost_per_unit: Optional[float] = None
 
 class Inventory(InventoryBase):
     id: int

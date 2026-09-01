@@ -62,7 +62,7 @@ def update_inventory_item(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Update an inventory item quantity or threshold.
+    Update an inventory item.
     """
     item = db.query(InventoryModel).filter(InventoryModel.id == id).first()
     if not item:
@@ -70,11 +70,11 @@ def update_inventory_item(
         
     if item.school_id != current_user.school_id:
         raise HTTPException(status_code=403, detail="Not enough permissions")
-        
-    if item_in.quantity is not None:
-        item.quantity = item_in.quantity
-    if item_in.threshold is not None:
-        item.threshold = item_in.threshold
+    
+    # Update all fields that are provided
+    update_data = item_in.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(item, field, value)
         
     db.commit()
     db.refresh(item)

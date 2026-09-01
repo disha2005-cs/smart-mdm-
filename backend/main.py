@@ -51,7 +51,7 @@ def create_app() -> FastAPI:
         return response
 
     # Include routers
-    from app.api.v1 import alerts, attendance, auth, dashboard, inventory, iot, reports, schools, students, users
+    from app.api.v1 import alerts, attendance, auth, dashboard, inventory, iot, reports, schools, students, users, meals, allocations, budgets
     app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
     app.include_router(users.router, prefix=f"{settings.API_V1_STR}/users", tags=["users"])
     app.include_router(dashboard.router, prefix=f"{settings.API_V1_STR}/dashboard", tags=["dashboard"])
@@ -62,6 +62,9 @@ def create_app() -> FastAPI:
     app.include_router(alerts.router, prefix=f"{settings.API_V1_STR}/alerts", tags=["alerts"])
     app.include_router(iot.router, prefix=f"{settings.API_V1_STR}/iot", tags=["iot"])
     app.include_router(reports.router, prefix=f"{settings.API_V1_STR}/reports", tags=["reports"])
+    app.include_router(meals.router, prefix=f"{settings.API_V1_STR}/meals", tags=["meals"])
+    app.include_router(allocations.router, prefix=f"{settings.API_V1_STR}/allocations", tags=["food-allocations"])
+    app.include_router(budgets.router, prefix=f"{settings.API_V1_STR}/budgets", tags=["budgets"])
 
     # Mount static files (uploads)
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
