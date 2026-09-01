@@ -128,4 +128,34 @@ export const usersAPI = {
     api.post(`/users/${id}/reset-password`, null, { params: { new_password: newPassword } }),
 };
 
+// Meals API
+export const mealsAPI = {
+  generatePlan: (date?: string) => api.post('/meals/plan', null, { params: { plan_date: date } }),
+  createDaily: (data: any) => api.post('/meals/daily', data),
+  consumeInventory: (id: number) => api.post(`/meals/${id}/consume`),
+  getAll: (skip?: number, limit?: number) => api.get('/meals', { params: { skip, limit } }),
+};
+
+// Food Allocations API
+export const allocationsAPI = {
+  getAll: (schoolId?: number, status?: string) => 
+    api.get('/allocations', { params: { school_id: schoolId, status_filter: status } }),
+  create: (data: any) => api.post('/allocations/', data),
+  update: (id: number, data: any) => api.put(`/allocations/${id}`, data),
+  approve: (id: number) => api.post(`/allocations/${id}/approve`),
+  getSummary: () => api.get('/allocations/summary'),
+};
+
+// Budgets API
+export const budgetsAPI = {
+  getAll: (financialYear?: string) => 
+    api.get('/budgets', { params: { financial_year: financialYear } }),
+  getById: (id: number) => api.get(`/budgets/${id}`),
+  allocate: (data: any) => api.post('/budgets/', data),
+  update: (id: number, data: any) => api.put(`/budgets/${id}`, data),
+  utilize: (id: number, amount: number) => api.post(`/budgets/${id}/utilize`, null, { params: { amount } }),
+  getSummary: (financialYear: string = '2026-27') => 
+    api.get('/budgets/summary/government', { params: { financial_year: financialYear } }),
+};
+
 export default api;
