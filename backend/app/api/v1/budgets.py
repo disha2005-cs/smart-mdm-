@@ -16,7 +16,7 @@ def allocate_budget(
     *,
     db: Session = Depends(get_db),
     budget_in: BudgetCreate,
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Government admin allocates budget to school for a financial year.
@@ -93,7 +93,7 @@ def update_budget(
     id: int,
     budget_in: BudgetUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Update budget allocation or utilization.
@@ -150,7 +150,7 @@ def utilize_budget(
 def get_government_budget_summary(
     financial_year: str = "2026-27",
     db: Session = Depends(get_db),
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Get budget summary for government dashboard.

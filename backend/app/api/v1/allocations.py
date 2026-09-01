@@ -21,7 +21,7 @@ def create_allocation(
     *,
     db: Session = Depends(get_db),
     allocation_in: FoodAllocationCreate,
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Government admin allocates food to schools.
@@ -72,7 +72,7 @@ def update_allocation(
     id: int,
     allocation_in: FoodAllocationUpdate,
     db: Session = Depends(get_db),
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Update allocation status or quantity.
@@ -94,7 +94,7 @@ def update_allocation(
 def approve_allocation(
     id: int,
     db: Session = Depends(get_db),
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Approve food allocation and add to school's inventory.
@@ -139,7 +139,7 @@ def approve_allocation(
 @router.get("/summary")
 def get_allocation_summary(
     db: Session = Depends(get_db),
-    current_user = Depends(deps.get_current_government_admin)
+    current_user = Depends(deps.get_current_gov_admin)
 ):
     """
     Get summary of food allocations for government dashboard.
