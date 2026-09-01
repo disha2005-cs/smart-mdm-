@@ -209,9 +209,6 @@ def consume_inventory(
         "message": "Inventory updated successfully",
         "deductions": deductions
     }
-        "message": "Inventory updated successfully",
-        "deductions": deductions
-    }
 
 
 @router.get("/", response_model=List[DailyMealSchema])
