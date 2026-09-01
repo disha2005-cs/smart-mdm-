@@ -1,17 +1,20 @@
 from app.database import SessionLocal
 from app.models.user import User, UserRole
-from app.models.school import School
 from app.core.security import get_password_hash
 
-def seed_db():
+def seed_initial_admin():
+    """
+    Creates only the initial Government Admin user.
+    Run this once to bootstrap the system.
+    """
     db = SessionLocal()
     
     try:
-        # Check if admin exists
-        admin = db.query(User).filter(User.employee_id == "GOV-001").first()
+        # Check if any admin exists
+        admin_exists = db.query(User).filter(User.role == UserRole.GOVERNMENT).first()
         
-        if not admin:
-            print("Creating Government Admin GOV-001...")
+        if not admin_exists:
+            print("Creating Government Admin...")
             new_admin = User(
                 employee_id="GOV-001",
                 first_name="Government",
@@ -20,56 +23,34 @@ def seed_db():
                 phone="9876543210",
                 role=UserRole.GOVERNMENT,
                 designation="Director",
-                password_hash=get_password_hash("password123"),
+                password_hash=get_password_hash("admin123"),
                 is_active=True
             )
             db.add(new_admin)
             db.commit()
-            print("✅ Admin created successfully! Use Employee ID: GOV-001, Password: password123")
+            print("✅ Government Admin created successfully!")
+            print("\nLogin credentials:")
+            print("  Employee ID: GOV-001")
+            print("  Password: admin123")
+            print("\nIMPORTANT: Change this password after first login!")
         else:
-            print("✅ Admin already exists! Use Employee ID: GOV-001, Password: password123")
-        
-        # Create sample school if doesn't exist
-        school = db.query(School).filter(School.udise_code == "12345678901").first()
-        if not school:
-            print("Creating sample school...")
-            school = School(
-                udise_code="12345678901",
-                school_name="Government Primary School",
-                district="Bangalore Urban",
-                taluk="Bangalore North",
-                village="Yelahanka",
-                status="ACTIVE"
-            )
-            db.add(school)
-            db.commit()
-            db.refresh(school)
-            print(f"✅ School created: {school.school_name}")
+            print("✅ Admin already exists!")
+            print("If you forgot the password, delete the user and run this script again.")
             
-            # Create school admin
-            school_admin = User(
-                employee_id="SCH-001",
-                first_name="School",
-                last_name="Principal",
-                email="principal@school.edu.in",
-                phone="9876543211",
-                role=UserRole.SCHOOL,
-                school_id=school.id,
-                designation="Principal",
-                password_hash=get_password_hash("password123"),
-                is_active=True
-            )
-            db.add(school_admin)
-            db.commit()
-            print("✅ School admin created: SCH-001 / password123")
-            
+    except Exception as e:
+        print(f"❌ Error: {e}")
+        db.rollback()
     finally:
         db.close()
 
 if __name__ == "__main__":
-    print("🌱 Seeding database...")
-    seed_db()
-    print("\n✅ Seeding complete!")
-    print("\nLogin credentials:")
-    print("  Government Admin: GOV-001 / password123")
-    print("  School Admin: SCH-001 / password123")
+    print("🌱 Initializing Smart Mid-Day Meal System...")
+    print("This will create ONLY the initial Government Admin user.")
+    print("")
+    seed_initial_admin()
+    print("\n✅ Initialization complete!")
+    print("\nNext steps:")
+    print("1. Login as Government Admin (GOV-001 / admin123)")
+    print("2. Add schools through the UI")
+    print("3. Add school administrators")
+    print("4. School admins can add students and mark attendance")

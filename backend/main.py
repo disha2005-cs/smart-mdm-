@@ -6,13 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from loguru import logger
 
-from app.bootstrap import seed_demo_data
 from app.core.config import settings
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    # Seed data runs separately via seed.py
+    # Application startup/shutdown logic
     yield
 
 
