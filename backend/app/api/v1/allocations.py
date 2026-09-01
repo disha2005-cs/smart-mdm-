@@ -31,6 +31,20 @@ def create_allocation(
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     
+    # Check for duplicate allocation (same school, item, status=PENDING)
+    existing = db.query(FoodAllocation).filter(
+        FoodAllocation.school_id == allocation_in.school_id,
+        FoodAllocation.item_name == allocation_in.item_name,
+        FoodAllocation.status == AllocationStatus.PENDING
+    ).first()
+    
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Pending allocation already exists for {allocation_in.item_name} to this school. "
+                   f"Approve or reject it first before creating a new one."
+        )
+    
     allocation = FoodAllocation(**allocation_in.model_dump())
     db.add(allocation)
     db.commit()

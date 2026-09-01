@@ -18,12 +18,21 @@ def create_inventory_item(
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Create a new inventory item.
+    Create a new inventory item with validation.
     """
+    # Validate threshold and quantity
+    if item_in.threshold <= 0:
+        raise HTTPException(status_code=400, detail="Threshold must be greater than 0")
+    
+    if item_in.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity cannot be negative")
+    
+    # Check if item already exists
     item = db.query(InventoryModel).filter(
         InventoryModel.school_id == current_user.school_id,
         InventoryModel.item_name == item_in.item_name
     ).first()
+    
     if item:
         raise HTTPException(status_code=400, detail="Item already exists in inventory")
 

@@ -253,8 +253,12 @@ async def mark_attendance_from_camera(
                 detail="Face does not match the specified student"
             )
         
-        # Get student details
+        # Get student details with null check
         student = db.query(Student).filter(Student.id == matched_student_id).first()
+        
+        if not student:
+            os.remove(file_path)
+            raise HTTPException(status_code=404, detail="Matched student not found in database")
         
         # Check for duplicate attendance today
         existing = db.query(Attendance).filter(

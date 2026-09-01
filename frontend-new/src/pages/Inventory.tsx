@@ -54,6 +54,13 @@ const Inventory = () => {
     setLoading(true);
     try {
       const response = await inventoryAPI.getAll();
+      // Safely handle response with null checks
+      if (!response || !response.data) {
+        setError('Invalid response from server');
+        setItems([]);
+        setFiltered([]);
+        return;
+      }
       const itemsData = response.data ?? [];
       setItems(itemsData);
       setFiltered(itemsData);
@@ -61,6 +68,8 @@ const Inventory = () => {
     } catch (err: any) {
       console.error('Error fetching inventory:', err);
       setError(err.response?.data?.detail || 'Failed to load inventory');
+      setItems([]);
+      setFiltered([]);
     } finally {
       setLoading(false);
     }
@@ -133,7 +142,12 @@ const Inventory = () => {
   };
 
   const getStatus = (item: InventoryItem) => {
-    const ratio = item.quantity / (item.threshold || 1);
+    // Validate threshold to avoid division by zero
+    if (item.threshold <= 0) {
+      return { label: 'Invalid', color: 'bg-slate-100 text-slate-700', bar: 'bg-slate-500' };
+    }
+    
+    const ratio = item.quantity / item.threshold;
     if (ratio <= 0.5) return { label: 'Critical', color: 'bg-danger-100 text-danger-700', bar: 'bg-danger-500' };
     if (ratio <= 1) return { label: 'Low', color: 'bg-warning-100 text-warning-700', bar: 'bg-warning-500' };
     if (ratio <= 2) return { label: 'Moderate', color: 'bg-primary-100 text-primary-700', bar: 'bg-primary-500' };

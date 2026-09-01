@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = ["*"] # Adjust in production
+    FRONTEND_URL: str | None = None  # Optional production frontend URL
     
     # Database
     DATABASE_URL: str

@@ -62,15 +62,22 @@ const StudentManagement = () => {
       return;
     }
     fetchStudents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [schoolId, schoolLoading]);
 
   const fetchStudents = async () => {
     setLoading(true);
     try {
       const response = await studentsAPI.getAll();
-      setStudents(response.data ?? []);
+      // Safely handle response with null checks
+      if (!response || !response.data || !Array.isArray(response.data)) {
+        setStudents([]);
+        return;
+      }
+      setStudents(response.data);
     } catch (err) {
       console.error('Error fetching students:', err);
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -79,11 +86,19 @@ const StudentManagement = () => {
   const fetchStudentAttendance = async (studentId: number) => {
     try {
       const response = await attendanceAPI.getStudentHistory(studentId);
+      
+      // Safely handle response with null checks
+      if (!response || !response.data || !Array.isArray(response.data)) {
+        setAttendanceRecords([]);
+        return;
+      }
+      
       // Get last 30 days
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const recentRecords = (response.data ?? []).filter((record: any) => {
+      const recentRecords = response.data.filter((record: any) => {
+        if (!record.date) return false;
         const recordDate = new Date(record.date);
         return recordDate >= thirtyDaysAgo;
       });

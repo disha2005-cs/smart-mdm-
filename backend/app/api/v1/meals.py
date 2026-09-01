@@ -17,17 +17,24 @@ router = APIRouter()
 def generate_meal_plan(
     *,
     db: Session = Depends(get_db),
-    plan_date: date = None,
+    date: str = None,  # Accept string date in YYYY-MM-DD format
     current_user = Depends(deps.get_current_school_admin)
 ):
     """
-    Generate meal plan based on today's attendance and government norms.
+    Generate meal plan based on attendance and government norms.
     Uses grade-based calculation: Primary (100g grains) vs Upper Primary (150g grains).
     """
-    if not plan_date:
-        plan_date = date.today()
+    # Parse date string if provided
+    if date:
+        try:
+            plan_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+    else:
+        from datetime import date as date_module
+        plan_date = date_module.today()
     
-    # Get students present today
+    # Get students present on the specified date
     attendance_records = db.query(Attendance).filter(
         Attendance.school_id == current_user.school_id,
         Attendance.date == plan_date,
@@ -153,6 +160,7 @@ def consume_inventory(
 ):
     """
     Deduct meal ingredients from inventory after meal is served.
+    Uses row-level locking to prevent race conditions.
     """
     meal = db.query(DailyMeal).filter(
         DailyMeal.id == id,
@@ -162,10 +170,10 @@ def consume_inventory(
     if not meal:
         raise HTTPException(status_code=404, detail="Meal record not found")
     
-    # Get inventory items
+    # Get inventory items with row-level locks to prevent concurrent deductions
     inventory_items = db.query(Inventory).filter(
         Inventory.school_id == current_user.school_id
-    ).all()
+    ).with_for_update().all()
     
     deductions = []
     
@@ -182,6 +190,7 @@ def consume_inventory(
         
         if deduct_qty > 0:
             if item.quantity < deduct_qty:
+                db.rollback()  # Rollback transaction on insufficient stock
                 raise HTTPException(
                     status_code=400,
                     detail=f"Insufficient {item.item_name}. Available: {item.quantity}, Required: {deduct_qty}"
@@ -197,6 +206,9 @@ def consume_inventory(
     db.commit()
     
     return {
+        "message": "Inventory updated successfully",
+        "deductions": deductions
+    }
         "message": "Inventory updated successfully",
         "deductions": deductions
     }

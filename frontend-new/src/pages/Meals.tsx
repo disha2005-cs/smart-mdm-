@@ -52,6 +52,7 @@ const Meals = () => {
     setError('');
     
     try {
+      // Pass date as query parameter instead of body
       const response = await mealsAPI.generatePlan(selectedDate);
       setMealPlan(response.data);
     } catch (err: any) {

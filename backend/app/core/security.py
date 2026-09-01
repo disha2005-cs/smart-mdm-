@@ -9,7 +9,7 @@ from app.core.config import settings
 pwd_context = CryptContext(
     schemes=["bcrypt"],
     deprecated="auto",
-    bcrypt__rounds=4  # Faster for development
+    bcrypt__rounds=12  # SECURITY: Standard secure rounds for production
 )
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:

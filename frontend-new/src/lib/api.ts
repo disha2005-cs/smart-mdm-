@@ -130,7 +130,7 @@ export const usersAPI = {
 
 // Meals API
 export const mealsAPI = {
-  generatePlan: (date?: string) => api.post('/meals/plan', null, { params: { plan_date: date } }),
+  generatePlan: (date?: string) => api.post('/meals/plan', null, { params: { date } }),
   createDaily: (data: any) => api.post('/meals/daily', data),
   consumeInventory: (id: number) => api.post(`/meals/${id}/consume`),
   getAll: (skip?: number, limit?: number) => api.get('/meals', { params: { skip, limit } }),

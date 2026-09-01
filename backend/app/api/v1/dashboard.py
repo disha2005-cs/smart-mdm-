@@ -121,8 +121,10 @@ def get_school_dashboard(db: Session = Depends(get_db), current_user = Depends(d
     school_id = current_user.school_id
     today = date.today()
     
-    # Get school details
+    # Get school details with null check
     school = db.query(School).filter(School.id == school_id).first()
+    if not school:
+        raise HTTPException(status_code=404, detail="School not found")
     
     # Core KPIs
     total_students = db.query(Student).filter(

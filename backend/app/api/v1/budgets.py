@@ -121,10 +121,18 @@ def utilize_budget(
     """
     Record budget utilization by school.
     """
+    # Validate amount is positive
+    if amount <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Utilization amount must be positive"
+        )
+    
+    # Use row-level locking to prevent race conditions
     budget = db.query(Budget).filter(
         Budget.id == id,
         Budget.school_id == current_user.school_id
-    ).first()
+    ).with_for_update().first()
     
     if not budget:
         raise HTTPException(status_code=404, detail="Budget not found")

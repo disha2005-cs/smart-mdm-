@@ -133,24 +133,41 @@ def update_school(
 @router.delete("/{id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_school(
     id: int,
+    confirm: bool = False,
     db: Session = Depends(get_db),
     current_user=Depends(deps.get_current_gov_admin),
 ):
     """
-    Delete school and its associated admin.
+    Delete school and ALL associated data (students, admin, inventory, budgets, attendance).
+    Requires confirmation parameter.
     """
     from app.models.user import User
+    from app.models.student import Student
+    from app.models.inventory import Inventory
+    from app.models.budget import Budget
+    from app.models.attendance import Attendance
     
     school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
     
-    # Delete associated admin first (if exists)
-    admin = db.query(User).filter(User.school_id == id).first()
-    if admin:
-        db.delete(admin)
+    # Count dependencies
+    student_count = db.query(Student).filter(Student.school_id == id).count()
+    admin_count = db.query(User).filter(User.school_id == id).count()
+    inventory_count = db.query(Inventory).filter(Inventory.school_id == id).count()
+    budget_count = db.query(Budget).filter(Budget.school_id == id).count()
+    attendance_count = db.query(Attendance).filter(Attendance.school_id == id).count()
     
-    # Delete the school
+    # Require explicit confirmation if data exists
+    if not confirm and (student_count > 0 or attendance_count > 0):
+        raise HTTPException(
+            status_code=400,
+            detail=f"School has {student_count} students and {attendance_count} attendance records. "
+                   f"Add ?confirm=true to delete all data."
+        )
+    
+    # Delete school (cascades handle dependencies due to ondelete='CASCADE' in models)
     db.delete(school)
     db.commit()
+    
     return None
