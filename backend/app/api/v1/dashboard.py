@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import distinct, func
+from sqlalchemy import distinct, func, text
 from sqlalchemy.orm import Session
 
 from app.api import deps
@@ -16,7 +16,7 @@ from app.models.food_allocation import AllocationStatus, FoodAllocation
 from app.models.inventory import Inventory
 from app.models.school import School
 from app.models.student import Student
-from app.services.meal_calculator import calculate_meal_requirements
+from app.services.meal_calculator import requirements_from_grade_counts
 
 router = APIRouter()
 
@@ -42,73 +42,75 @@ def get_government_dashboard(
     today = date.today()
     financial_year = current_financial_year(today)
 
-    total_schools = db.query(func.count(School.id)).filter(School.is_active.is_(True)).scalar() or 0
-    total_students = db.query(func.count(Student.id)).filter(Student.is_active.is_(True)).scalar() or 0
+    window_start = today - timedelta(days=TREND_WINDOW_DAYS)
+    previous_start = window_start - timedelta(days=TREND_WINDOW_DAYS)
+    month_start = today.replace(day=1)
 
-    students_present_today = db.query(func.count(distinct(Attendance.student_id))).filter(
-        Attendance.date == today,
-        Attendance.status == STATUS_PRESENT,
-    ).scalar() or 0
+    # Every headline number in one round trip.
+    #
+    # These were fourteen separate scalar queries. Against a managed database
+    # in another region each one costs a full round trip (~250ms here), so the
+    # page spent seconds doing nothing but waiting. As correlated subqueries in
+    # a single SELECT the whole set comes back in one.
+    totals = db.execute(text("""
+        SELECT
+          (SELECT count(*) FROM schools WHERE is_active) AS total_schools,
+          (SELECT count(*) FROM students WHERE is_active) AS total_students,
+          (SELECT count(DISTINCT district) FROM schools WHERE is_active) AS districts,
+          (SELECT count(*) FROM schools WHERE created_at >= :month_start) AS schools_this_month,
+          (SELECT count(DISTINCT student_id) FROM attendances
+             WHERE date = :today AND status = :present) AS present_today,
+          (SELECT coalesce(sum(total_students_present), 0) FROM daily_meals
+             WHERE date = :today) AS meals_today,
+          (SELECT count(*) FROM daily_meals WHERE date >= :month_start) AS meal_records_month,
+          (SELECT coalesce(sum(quantity), 0) FROM food_allocations
+             WHERE status IN ('APPROVED', 'DELIVERED')
+               AND allocation_date >= :month_start) AS food_allocated,
+          (SELECT count(*) FROM food_allocations WHERE status = 'PENDING') AS pending_allocations,
+          (SELECT coalesce(sum(allocated_amount), 0) FROM budgets
+             WHERE financial_year = :fy) AS budget_allocated,
+          (SELECT coalesce(sum(utilized_amount), 0) FROM budgets
+             WHERE financial_year = :fy) AS budget_utilized,
+          (SELECT count(*) FROM attendances
+             WHERE date >= :window_start AND status = :present) AS present_window,
+          (SELECT count(*) FROM attendances
+             WHERE date >= :previous_start AND date < :window_start
+               AND status = :present) AS present_previous,
+          (SELECT avg(confidence_score) FROM attendances
+             WHERE date >= :window_start AND confidence_score IS NOT NULL) AS avg_confidence,
+          (SELECT count(*) FROM alerts WHERE status = 'UNREAD') AS unread_alerts,
+          (SELECT count(DISTINCT school_id) FROM inventory
+             WHERE quantity <= threshold) AS low_stock_schools
+    """), {
+        "today": today,
+        "month_start": month_start,
+        "window_start": window_start,
+        "previous_start": previous_start,
+        "fy": financial_year,
+        "present": STATUS_PRESENT,
+    }).mappings().one()
 
-    meals_served_today = db.query(
-        func.coalesce(func.sum(DailyMeal.total_students_present), 0)
-    ).filter(DailyMeal.date == today).scalar() or 0
+    total_schools = int(totals["total_schools"])
+    total_students = int(totals["total_students"])
+    students_present_today = int(totals["present_today"])
+    meals_served_today = int(totals["meals_today"])
+    food_allocated = float(totals["food_allocated"])
+    pending_allocations = int(totals["pending_allocations"])
+    budget_allocated = float(totals["budget_allocated"])
+    budget_utilized = float(totals["budget_utilized"])
+    schools_added_this_month = int(totals["schools_this_month"])
+    unread_alerts = int(totals["unread_alerts"])
+    low_stock_schools = int(totals["low_stock_schools"])
+    reports_generated = int(totals["meal_records_month"])
+    district_count = int(totals["districts"])
+    current_present = int(totals["present_window"])
+    previous_present = int(totals["present_previous"])
 
-    # Real food allocation totals instead of the previous hardcoded 50,000 kg.
-    food_allocated = db.query(func.coalesce(func.sum(FoodAllocation.quantity), 0)).filter(
-        FoodAllocation.status.in_([AllocationStatus.APPROVED, AllocationStatus.DELIVERED]),
-        FoodAllocation.allocation_date >= today.replace(day=1),
-    ).scalar() or 0
-
-    pending_allocations = db.query(func.count(FoodAllocation.id)).filter(
-        FoodAllocation.status == AllocationStatus.PENDING
-    ).scalar() or 0
-
-    # Real budget totals instead of the previous hardcoded 50,00,000.
-    budget_row = db.query(
-        func.coalesce(func.sum(Budget.allocated_amount), 0.0),
-        func.coalesce(func.sum(Budget.utilized_amount), 0.0),
-    ).filter(Budget.financial_year == financial_year).one()
-    budget_allocated, budget_utilized = float(budget_row[0]), float(budget_row[1])
     budget_utilisation = round(budget_utilized / budget_allocated * 100, 1) if budget_allocated else 0.0
-
     attendance_percentage = (
         round(students_present_today / total_students * 100, 1) if total_students else 0.0
     )
-
-    # Month-on-month attendance trend, computed rather than asserted.
-    window_start = today - timedelta(days=TREND_WINDOW_DAYS)
-    previous_start = window_start - timedelta(days=TREND_WINDOW_DAYS)
-
-    current_present = db.query(func.count(Attendance.id)).filter(
-        Attendance.date >= window_start, Attendance.status == STATUS_PRESENT
-    ).scalar() or 0
-    previous_present = db.query(func.count(Attendance.id)).filter(
-        Attendance.date >= previous_start,
-        Attendance.date < window_start,
-        Attendance.status == STATUS_PRESENT,
-    ).scalar() or 0
-
-    schools_added_this_month = db.query(func.count(School.id)).filter(
-        School.created_at >= today.replace(day=1)
-    ).scalar() or 0
-
-    unread_alerts = db.query(func.count(Alert.id)).filter(Alert.status == "UNREAD").scalar() or 0
-
-    low_stock_schools = db.query(func.count(distinct(Inventory.school_id))).filter(
-        Inventory.quantity <= Inventory.threshold
-    ).scalar() or 0
-
-    # "AI health" is now the observed recognition confidence, not a fixed 98.5.
-    avg_confidence = db.query(func.avg(Attendance.confidence_score)).filter(
-        Attendance.date >= window_start,
-        Attendance.confidence_score.isnot(None),
-    ).scalar()
-    ai_health = round(float(avg_confidence), 1) if avg_confidence is not None else 0.0
-
-    reports_generated = db.query(func.count(DailyMeal.id)).filter(
-        DailyMeal.date >= today.replace(day=1)
-    ).scalar() or 0
+    ai_health = round(float(totals["avg_confidence"]), 1) if totals["avg_confidence"] is not None else 0.0
 
     kpis = {
         "total_schools": {
@@ -117,7 +119,7 @@ def get_government_dashboard(
         },
         "total_students": {
             "value": total_students, "label": "Total Students",
-            "trend": f"Across {db.query(func.count(distinct(School.district))).scalar() or 0} districts",
+            "trend": f"Across {district_count} district(s)",
             "icon": "Users",
         },
         "students_present_today": {
@@ -161,75 +163,81 @@ def get_government_dashboard(
         },
     }
 
-    # District rollup: schools, students, today's attendance and open alerts.
-    district_rows = db.query(
-        School.district,
-        func.count(distinct(School.id)).label("schools"),
-        func.count(distinct(Student.id)).label("students"),
-    ).outerjoin(
-        Student, (Student.school_id == School.id) & (Student.is_active.is_(True))
-    ).filter(School.is_active.is_(True)).group_by(School.district).all()
+    # District rollup in one round trip. Three grouped queries became one with
+    # the per-district aggregates as correlated subqueries; the counts must be
+    # computed separately anyway to avoid a fan-out between students,
+    # attendance and alerts on the same join.
+    district_rows = db.execute(text("""
+        SELECT s.district                                           AS name,
+               count(DISTINCT s.id)                                 AS schools,
+               (SELECT count(*) FROM students st
+                  JOIN schools s2 ON s2.id = st.school_id
+                 WHERE s2.district = s.district AND st.is_active AND s2.is_active) AS students,
+               (SELECT count(DISTINCT a.student_id) FROM attendances a
+                  JOIN schools s3 ON s3.id = a.school_id
+                 WHERE s3.district = s.district
+                   AND a.date = :today AND a.status = :present)     AS present_today,
+               (SELECT count(*) FROM alerts al
+                  JOIN schools s4 ON s4.id = al.school_id
+                 WHERE s4.district = s.district AND al.status = 'UNREAD') AS alerts
+          FROM schools s
+         WHERE s.is_active
+         GROUP BY s.district
+         ORDER BY schools DESC
+    """), {"today": today, "present": STATUS_PRESENT}).mappings().all()
 
-    attendance_by_district = dict(
-        db.query(School.district, func.count(distinct(Attendance.student_id)))
-        .join(Attendance, Attendance.school_id == School.id)
-        .filter(Attendance.date == today, Attendance.status == STATUS_PRESENT)
-        .group_by(School.district)
-        .all()
-    )
+    districts = [{
+        "name": row["name"],
+        "schools": int(row["schools"]),
+        "students": int(row["students"]),
+        "present_today": int(row["present_today"]),
+        "attendance": round(int(row["present_today"]) / int(row["students"]) * 100, 1)
+                      if row["students"] else 0.0,
+        "alerts": int(row["alerts"]),
+    } for row in district_rows]
 
-    alerts_by_district = dict(
-        db.query(School.district, func.count(Alert.id))
-        .join(Alert, Alert.school_id == School.id)
-        .filter(Alert.status == "UNREAD")
-        .group_by(School.district)
-        .all()
-    )
+    # Recent activity, and the alert list, in one round trip.
+    #
+    # The three ORM loops here each triggered a lazy load of `.school` per row
+    # (a classic N+1). One UNION ALL with the join already done replaces the
+    # lot, and the LIMITs mean it stays cheap as the tables grow.
+    activity_rows = db.execute(text("""
+        (SELECT 'school' AS kind, s.created_at AS at, s.school_name AS school,
+                s.district AS detail, NULL::text AS extra, NULL::text AS status
+           FROM schools s ORDER BY s.created_at DESC NULLS LAST LIMIT 3)
+        UNION ALL
+        (SELECT 'allocation', a.created_at, sc.school_name,
+                a.quantity || ' ' || a.unit || ' ' || a.item_name, NULL, a.status
+           FROM food_allocations a LEFT JOIN schools sc ON sc.id = a.school_id
+          ORDER BY a.created_at DESC NULLS LAST LIMIT 3)
+        UNION ALL
+        (SELECT 'budget', b.created_at, sc.school_name,
+                NULL, to_char(b.allocated_amount, 'FM999999999990'), NULL
+           FROM budgets b LEFT JOIN schools sc ON sc.id = b.school_id
+          ORDER BY b.created_at DESC NULLS LAST LIMIT 2)
+        ORDER BY at DESC NULLS LAST
+    """)).mappings().all()
 
-    districts = []
-    for district, school_count, student_count in district_rows:
-        present = attendance_by_district.get(district, 0)
-        districts.append({
-            "name": district,
-            "schools": school_count,
-            "students": student_count,
-            "present_today": present,
-            "attendance": round(present / student_count * 100, 1) if student_count else 0.0,
-            "alerts": alerts_by_district.get(district, 0),
-        })
-    districts.sort(key=lambda d: d["schools"], reverse=True)
-
-    # Recent activity assembled from real rows rather than a fixed sample list.
     recent_activities = []
-
-    for school in db.query(School).order_by(School.created_at.desc()).limit(3).all():
-        recent_activities.append({
-            "activity": "School Registered",
-            "school": school.school_name,
-            "district": school.district,
-            "time": school.created_at.isoformat() if school.created_at else None,
-            "type": "success",
-        })
-
-    for allocation in db.query(FoodAllocation).order_by(FoodAllocation.created_at.desc()).limit(3).all():
-        recent_activities.append({
-            "activity": f"Food Allocation {allocation.status.value.title()}",
-            "school": allocation.school.school_name if allocation.school else None,
-            "detail": f"{allocation.quantity} {allocation.unit} {allocation.item_name}",
-            "time": allocation.created_at.isoformat() if allocation.created_at else None,
-            "type": "info" if allocation.status == AllocationStatus.PENDING else "success",
-        })
-
-    for budget in db.query(Budget).order_by(Budget.created_at.desc()).limit(2).all():
-        recent_activities.append({
-            "activity": "Budget Allocated",
-            "school": budget.school.school_name if budget.school else None,
-            "amount": f"₹{budget.allocated_amount:,.0f}",
-            "time": budget.created_at.isoformat() if budget.created_at else None,
-            "type": "success",
-        })
-
-    recent_activities.sort(key=lambda item: item["time"] or "", reverse=True)
+    for row in activity_rows:
+        at = row["at"].isoformat() if row["at"] else None
+        if row["kind"] == "school":
+            recent_activities.append({
+                "activity": "School Registered", "school": row["school"],
+                "district": row["detail"], "time": at, "type": "success",
+            })
+        elif row["kind"] == "allocation":
+            status = (row["status"] or "").title()
+            recent_activities.append({
+                "activity": f"Food Allocation {status}", "school": row["school"],
+                "detail": row["detail"], "time": at,
+                "type": "info" if row["status"] == AllocationStatus.PENDING.value else "success",
+            })
+        else:
+            recent_activities.append({
+                "activity": "Budget Allocated", "school": row["school"],
+                "amount": f"₹{row['extra'] or 0}", "time": at, "type": "success",
+            })
 
     alerts = db.query(Alert).filter(
         Alert.status == "UNREAD"
@@ -272,74 +280,75 @@ def get_school_dashboard(
     school_id = current_user.school_id
     today = date.today()
 
-    school = db.query(School).filter(School.id == school_id).first()
-    if not school:
+    window_start = today - timedelta(days=TREND_WINDOW_DAYS)
+    yesterday = today - timedelta(days=1)
+
+    # School row plus every headline number in one round trip. This was ten
+    # separate queries, each a full round trip to a remote database.
+    summary = db.execute(text("""
+        SELECT s.id, s.school_name, s.principal_name, s.district, s.udise_code,
+          (SELECT count(*) FROM students
+             WHERE school_id = :sid AND is_active)                       AS total_students,
+          (SELECT count(DISTINCT a.student_id) FROM attendances a
+             WHERE a.school_id = :sid AND a.date = :today
+               AND a.status = :present)                                  AS present_today,
+          (SELECT count(DISTINCT a.student_id) FROM attendances a
+             WHERE a.school_id = :sid AND a.date = :yesterday
+               AND a.status = :present)                                  AS present_yesterday,
+          (SELECT coalesce(sum(quantity), 0) FROM inventory
+             WHERE school_id = :sid)                                     AS total_stock,
+          (SELECT coalesce(sum(quantity * coalesce(cost_per_unit, 0)), 0) FROM inventory
+             WHERE school_id = :sid)                                     AS stock_value,
+          (SELECT count(*) FROM inventory
+             WHERE school_id = :sid AND quantity <= threshold)           AS low_stock_items,
+          (SELECT avg(a.confidence_score) FROM attendances a
+             WHERE a.school_id = :sid AND a.date >= :window_start
+               AND a.confidence_score IS NOT NULL)                       AS avg_confidence,
+          (SELECT count(*) FROM face_encodings fe
+             JOIN students st ON st.id = fe.student_id
+            WHERE st.school_id = :sid AND st.is_active)                  AS students_with_faces,
+          (SELECT count(*) FROM alerts
+             WHERE school_id = :sid AND status = 'UNREAD')               AS gov_alerts,
+          dm.id                                                          AS meal_id,
+          dm.total_students_present                                      AS meal_served,
+          dm.inventory_consumed                                          AS meal_consumed
+        FROM schools s
+        LEFT JOIN daily_meals dm ON dm.school_id = s.id AND dm.date = :today
+        WHERE s.id = :sid
+    """), {
+        "sid": school_id, "today": today, "yesterday": yesterday,
+        "window_start": window_start, "present": STATUS_PRESENT,
+    }).mappings().first()
+
+    if summary is None:
         raise HTTPException(status_code=404, detail="School not found")
 
-    total_students = db.query(func.count(Student.id)).filter(
-        Student.school_id == school_id,
-        Student.is_active.is_(True),
-    ).scalar() or 0
-
-    present_student_ids = [
-        row[0] for row in db.query(distinct(Attendance.student_id)).filter(
-            Attendance.school_id == school_id,
-            Attendance.date == today,
-            Attendance.status == STATUS_PRESENT,
-        ).all()
-    ]
-    students_present_today = len(present_student_ids)
-
-    total_stock = db.query(func.coalesce(func.sum(Inventory.quantity), 0.0)).filter(
-        Inventory.school_id == school_id
-    ).scalar() or 0.0
-
-    stock_value = db.query(
-        func.coalesce(func.sum(Inventory.quantity * func.coalesce(Inventory.cost_per_unit, 0)), 0.0)
-    ).filter(Inventory.school_id == school_id).scalar() or 0.0
-
-    low_stock_items = db.query(func.count(Inventory.id)).filter(
-        Inventory.school_id == school_id,
-        Inventory.quantity <= Inventory.threshold,
-    ).scalar() or 0
+    total_students = int(summary["total_students"])
+    students_present_today = int(summary["present_today"])
+    total_stock = float(summary["total_stock"])
+    stock_value = float(summary["stock_value"])
+    low_stock_items = int(summary["low_stock_items"])
+    students_with_faces = int(summary["students_with_faces"])
+    gov_alerts = int(summary["gov_alerts"])
 
     attendance_percentage = (
         round(students_present_today / total_students * 100, 1) if total_students else 0.0
     )
+    attendance_trend = _percentage_change(students_present_today, int(summary["present_yesterday"]))
+    ai_accuracy = round(float(summary["avg_confidence"]), 1) if summary["avg_confidence"] is not None else 0.0
 
-    # Yesterday's rate, so the trend text reflects reality instead of "+3%".
-    yesterday_present = db.query(func.count(distinct(Attendance.student_id))).filter(
-        Attendance.school_id == school_id,
-        Attendance.date == today - timedelta(days=1),
-        Attendance.status == STATUS_PRESENT,
-    ).scalar() or 0
-    attendance_trend = _percentage_change(students_present_today, yesterday_present)
+    # Meal requirement from the government norms for the students actually
+    # present. Counting grades in SQL avoids pulling every present student's
+    # row back just to bucket them.
+    grade_counts = db.execute(text("""
+        SELECT st.grade, count(DISTINCT st.id) AS n
+          FROM attendances a JOIN students st ON st.id = a.student_id
+         WHERE a.school_id = :sid AND a.date = :today AND a.status = :present
+           AND st.is_active
+         GROUP BY st.grade
+    """), {"sid": school_id, "today": today, "present": STATUS_PRESENT}).all()
 
-    avg_confidence = db.query(func.avg(Attendance.confidence_score)).filter(
-        Attendance.school_id == school_id,
-        Attendance.date >= today - timedelta(days=TREND_WINDOW_DAYS),
-        Attendance.confidence_score.isnot(None),
-    ).scalar()
-    ai_accuracy = round(float(avg_confidence), 1) if avg_confidence is not None else 0.0
-
-    # How many students the camera can actually recognise.
-    students_with_faces = db.query(func.count(FaceEncoding.id)).join(
-        Student, FaceEncoding.student_id == Student.id
-    ).filter(
-        Student.school_id == school_id,
-        Student.is_active.is_(True),
-    ).scalar() or 0
-
-    gov_alerts = db.query(func.count(Alert.id)).filter(
-        Alert.school_id == school_id,
-        Alert.status == "UNREAD",
-    ).scalar() or 0
-
-    # Meal requirement from the government norms for the students who are
-    # actually present, replacing the previous flat 0.15kg-per-head estimate.
-    meal_calc = calculate_meal_requirements(
-        db=db, school_id=school_id, student_ids=present_student_ids
-    )
+    meal_calc = requirements_from_grade_counts({row[0]: int(row[1]) for row in grade_counts})
     requirements = meal_calc["requirements"]
 
     kpis = {
@@ -421,18 +430,17 @@ def get_school_dashboard(
         ),
     } for inv in inventory_items]
 
-    daily_record = db.query(DailyMeal).filter(
-        DailyMeal.school_id == school_id,
-        DailyMeal.date == today,
-    ).first()
+    # Today's meal record came back with the summary above (LEFT JOIN).
+    meal_recorded = summary["meal_id"] is not None
+    meal_served = int(summary["meal_served"] or 0)
 
     meal_summary = {
         "required": students_present_today,
-        "prepared": daily_record.total_students_present if daily_record else 0,
-        "served": daily_record.total_students_present if daily_record else 0,
-        "remaining": max(0, students_present_today - (daily_record.total_students_present if daily_record else 0)),
-        "recorded": daily_record is not None,
-        "stock_deducted": bool(daily_record.inventory_consumed) if daily_record else False,
+        "prepared": meal_served,
+        "served": meal_served,
+        "remaining": max(0, students_present_today - meal_served),
+        "recorded": meal_recorded,
+        "stock_deducted": bool(summary["meal_consumed"]),
         "ingredients": {
             "rice": {"required": requirements["rice_kg"], "unit": "kg"},
             "wheat": {"required": requirements["wheat_kg"], "unit": "kg"},
@@ -446,50 +454,48 @@ def get_school_dashboard(
         },
     }
 
-    # Recent activity built from real records.
+    # Recent activity: three "most recent row" lookups collapsed into one.
+    activity_rows = db.execute(text("""
+        (SELECT 'attendance' AS kind, a.created_at AS at, NULL::text AS detail
+           FROM attendances a WHERE a.school_id = :sid
+          ORDER BY a.created_at DESC NULLS LAST LIMIT 1)
+        UNION ALL
+        (SELECT 'student', st.created_at,
+                st.first_name || ' ' || st.last_name || ' (Grade ' || coalesce(st.grade, '-') || ')'
+           FROM students st WHERE st.school_id = :sid
+          ORDER BY st.created_at DESC NULLS LAST LIMIT 1)
+        UNION ALL
+        (SELECT 'inventory', i.last_updated,
+                i.item_name || ': ' || i.quantity || ' ' || i.unit
+           FROM inventory i WHERE i.school_id = :sid
+          ORDER BY i.last_updated DESC NULLS LAST LIMIT 1)
+        ORDER BY at DESC NULLS LAST
+    """), {"sid": school_id}).mappings().all()
+
+    labels = {
+        "attendance": ("Attendance marked", "success"),
+        "student": ("Student registered", "info"),
+        "inventory": ("Inventory updated", "success"),
+    }
     recent_activities = []
-    last_capture = db.query(Attendance).filter(
-        Attendance.school_id == school_id
-    ).order_by(Attendance.created_at.desc()).first()
-    if last_capture:
+    for row in activity_rows:
+        if row["at"] is None:
+            continue
+        activity, tone = labels[row["kind"]]
         recent_activities.append({
-            "activity": "Attendance marked",
-            "detail": f"{students_present_today} present today",
-            "time": last_capture.created_at.isoformat() if last_capture.created_at else None,
-            "type": "success",
+            "activity": activity,
+            "detail": row["detail"] or f"{students_present_today} present today",
+            "time": row["at"].isoformat(),
+            "type": tone,
         })
 
-    last_student = db.query(Student).filter(
-        Student.school_id == school_id
-    ).order_by(Student.created_at.desc()).first()
-    if last_student:
-        recent_activities.append({
-            "activity": "Student registered",
-            "detail": f"{last_student.first_name} {last_student.last_name} (Grade {last_student.grade})",
-            "time": last_student.created_at.isoformat() if last_student.created_at else None,
-            "type": "info",
-        })
-
-    last_inventory = db.query(Inventory).filter(
-        Inventory.school_id == school_id
-    ).order_by(Inventory.last_updated.desc()).first()
-    if last_inventory:
-        recent_activities.append({
-            "activity": "Inventory updated",
-            "detail": f"{last_inventory.item_name}: {last_inventory.quantity} {last_inventory.unit}",
-            "time": last_inventory.last_updated.isoformat() if last_inventory.last_updated else None,
-            "type": "success",
-        })
-
-    if daily_record:
+    if meal_recorded:
         recent_activities.append({
             "activity": "Meal record saved",
-            "detail": f"{daily_record.total_students_present} meals on {daily_record.date.isoformat()}",
-            "time": daily_record.created_at.isoformat() if daily_record.created_at else None,
+            "detail": f"{meal_served} meals today",
+            "time": None,
             "type": "success",
         })
-
-    recent_activities.sort(key=lambda item: item["time"] or "", reverse=True)
 
     alerts = db.query(Alert).filter(
         Alert.school_id == school_id,
@@ -498,11 +504,11 @@ def get_school_dashboard(
 
     return {
         "school": {
-            "id": school.id,
-            "name": school.school_name,
-            "principal": school.principal_name or "Not recorded",
-            "district": school.district,
-            "udise_code": school.udise_code,
+            "id": summary["id"],
+            "name": summary["school_name"],
+            "principal": summary["principal_name"] or "Not recorded",
+            "district": summary["district"],
+            "udise_code": summary["udise_code"],
         },
         "kpis": kpis,
         "attendance_data": attendance_data,

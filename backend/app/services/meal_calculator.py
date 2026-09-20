@@ -81,6 +81,71 @@ def _norms_for(category: str) -> Dict:
     return GOVERNMENT_NORMS["PRIMARY"] if category == "PRIMARY" else GOVERNMENT_NORMS["UPPER_PRIMARY"]
 
 
+def requirements_from_grade_counts(
+    counts_by_grade: Dict[Optional[str], int],
+    rice_share: float = DEFAULT_RICE_SHARE,
+) -> Dict:
+    """
+    Build a requirement set from a ``{grade: headcount}`` histogram.
+
+    Same arithmetic as :func:`calculate_meal_requirements`, but taking counts
+    the caller has already aggregated (in SQL, say) instead of a list of
+    student rows. Both entry points share :func:`_totals_from_counts`, so the
+    numbers cannot drift apart.
+    """
+    counts = {"PRIMARY": 0, "UPPER_PRIMARY": 0, "SECONDARY": 0}
+    for grade, headcount in counts_by_grade.items():
+        counts[classify_student_by_grade(grade)] += int(headcount or 0)
+    return _totals_from_counts(counts, rice_share)
+
+
+def _totals_from_counts(counts: Dict[str, int], rice_share: float) -> Dict:
+    """Turn per-stage headcounts into the full requirement payload."""
+    rice_share = min(max(float(rice_share), 0.0), 1.0)
+
+    # Totals in grams first, converted once at the end. Summing rounded
+    # per-category kilograms is what previously drifted from the true total.
+    totals = {"food_grains_gms": 0.0, "pulses_gms": 0.0, "vegetables_gms": 0.0,
+              "oil_fat_gms": 0.0, "calories": 0.0, "protein_gms": 0.0}
+
+    for category, count in counts.items():
+        norms = _norms_for(category)
+        for key in totals:
+            totals[key] += norms[key] * count
+
+    grains_kg = totals["food_grains_gms"] / 1000.0
+
+    requirements = {
+        "rice_kg": round(grains_kg * rice_share, 3),
+        "wheat_kg": round(grains_kg * (1 - rice_share), 3),
+        "grains_kg": round(grains_kg, 3),
+        "dal_kg": round(totals["pulses_gms"] / 1000.0, 3),
+        "vegetables_kg": round(totals["vegetables_gms"] / 1000.0, 3),
+        "oil_liters": round(totals["oil_fat_gms"] / 1000.0, 3),
+        "total_calories": int(totals["calories"]),
+        "total_protein_gms": round(totals["protein_gms"], 2),
+    }
+
+    total_students = sum(counts.values())
+
+    return {
+        "total_students": total_students,
+        "primary_students": counts["PRIMARY"],
+        "upper_primary_students": counts["UPPER_PRIMARY"],
+        "secondary_students": counts["SECONDARY"],
+        "rice_share": rice_share,
+        "requirements": requirements,
+        "per_student_averages": {
+            "calories": round(totals["calories"] / total_students, 1) if total_students else 0,
+            "protein_gms": round(totals["protein_gms"] / total_students, 2) if total_students else 0,
+        },
+        "per_student_breakdown": {
+            "primary": GOVERNMENT_NORMS["PRIMARY"],
+            "upper_primary": GOVERNMENT_NORMS["UPPER_PRIMARY"],
+        },
+    }
+
+
 def calculate_meal_requirements(
     db: Session,
     school_id: int,
@@ -116,47 +181,7 @@ def calculate_meal_requirements(
     for student in students:
         counts[classify_student_by_grade(student.grade)] += 1
 
-    # Totals in grams first, converted once at the end. Summing rounded
-    # per-category kilograms is what previously drifted from the true total.
-    totals = {"food_grains_gms": 0.0, "pulses_gms": 0.0, "vegetables_gms": 0.0,
-              "oil_fat_gms": 0.0, "calories": 0.0, "protein_gms": 0.0}
-
-    for category, count in counts.items():
-        norms = _norms_for(category)
-        for key in totals:
-            totals[key] += norms[key] * count
-
-    grains_kg = totals["food_grains_gms"] / 1000.0
-
-    requirements = {
-        "rice_kg": round(grains_kg * rice_share, 3),
-        "wheat_kg": round(grains_kg * (1 - rice_share), 3),
-        "grains_kg": round(grains_kg, 3),
-        "dal_kg": round(totals["pulses_gms"] / 1000.0, 3),
-        "vegetables_kg": round(totals["vegetables_gms"] / 1000.0, 3),
-        "oil_liters": round(totals["oil_fat_gms"] / 1000.0, 3),
-        "total_calories": int(totals["calories"]),
-        "total_protein_gms": round(totals["protein_gms"], 2),
-    }
-
-    total_students = len(students)
-
-    return {
-        "total_students": total_students,
-        "primary_students": counts["PRIMARY"],
-        "upper_primary_students": counts["UPPER_PRIMARY"],
-        "secondary_students": counts["SECONDARY"],
-        "rice_share": rice_share,
-        "requirements": requirements,
-        "per_student_averages": {
-            "calories": round(totals["calories"] / total_students, 1) if total_students else 0,
-            "protein_gms": round(totals["protein_gms"] / total_students, 2) if total_students else 0,
-        },
-        "per_student_breakdown": {
-            "primary": GOVERNMENT_NORMS["PRIMARY"],
-            "upper_primary": GOVERNMENT_NORMS["UPPER_PRIMARY"],
-        },
-    }
+    return _totals_from_counts(counts, rice_share)
 
 
 def calculate_cost_estimate(meal_plan: Dict, inventory_costs: Dict[str, float]) -> Dict:

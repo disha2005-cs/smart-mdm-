@@ -1,3 +1,5 @@
+import os
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -16,6 +18,46 @@ from app.db_bootstrap import sync_schema
 UPLOAD_ROOT = Path("uploads")
 
 
+def _warm_connection_pools() -> None:
+    """
+    Open one connection on each engine before serving traffic.
+
+    Establishing a connection to a remote database costs several seconds
+    (TLS + auth, and waking a suspended serverless compute). Paying it here
+    means the first user request does not.
+    """
+    from sqlalchemy import text
+
+    from app.database import engine, readonly_engine
+
+    for label, target in (("write", engine), ("read", readonly_engine)):
+        try:
+            with target.connect() as connection:
+                connection.execute(text("SELECT 1"))
+        except Exception as exc:  # noqa: BLE001 - warming is best-effort
+            logger.warning(f"Could not warm the {label} connection pool: {exc}")
+
+
+def _preload_face_model() -> None:
+    """
+    Load the face-recognition model in the background.
+
+    It takes a few seconds and is otherwise loaded lazily by whoever opens the
+    attendance page first, who then waits for it. Doing it here in a daemon
+    thread keeps startup non-blocking.
+    """
+    def _load():
+        try:
+            from app.services.face_recognition_service import get_face_recognition_service
+
+            get_face_recognition_service()
+            logger.info("Face recognition model preloaded")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning(f"Face model preload failed; it will load on first use: {exc}")
+
+    threading.Thread(target=_load, name="face-model-preload", daemon=True).start()
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     # The uploads mount fails outright if the directory is missing, so create
@@ -24,6 +66,11 @@ async def lifespan(_: FastAPI):
         (UPLOAD_ROOT / sub).mkdir(parents=True, exist_ok=True)
 
     sync_schema()
+    _warm_connection_pools()
+
+    if os.getenv("PRELOAD_FACE_MODEL", "true").lower() in ("1", "true", "yes"):
+        _preload_face_model()
+
     logger.info(f"{settings.PROJECT_NAME} v{settings.VERSION} ready")
     yield
 

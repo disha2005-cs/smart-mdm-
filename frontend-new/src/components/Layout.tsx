@@ -18,7 +18,7 @@ import {
   IndianRupee,
   UserCog,
 } from 'lucide-react';
-import { useSchool } from '../hooks/useSchool';
+import { clearSchoolCache, useSchool } from '../hooks/useSchool';
 
 interface LayoutProps {
   children: ReactNode;
@@ -105,6 +105,7 @@ const Layout = ({ children }: LayoutProps) => {
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearSchoolCache();
     navigate('/login');
   };
 

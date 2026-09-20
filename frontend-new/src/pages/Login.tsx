@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { authAPI } from '../lib/api';
+import { clearSchoolCache } from '../hooks/useSchool';
 
 interface LoginProps {
   onLogin: () => void;
@@ -45,13 +46,17 @@ const Login = ({ onLogin }: LoginProps) => {
       const userData = meResponse.data;
 
       // Store complete user data
+      // /auth/me already carries the school, so storing it here means the
+      // rest of the app never has to fetch it again.
       localStorage.setItem('user', JSON.stringify({
         role,
         employee_id: userData.employee_id,
         school_id: userData.school_id || null,
+        school: userData.school ?? null,
         name: `${userData.first_name} ${userData.last_name}`,
         email: userData.email,
       }));
+      clearSchoolCache();
 
       onLogin();
       navigate('/dashboard');

@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from loguru import logger
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api import deps
 from app.core.validators import (
@@ -291,8 +291,11 @@ def read_students(
             | func.lower(StudentModel.student_id).like(term)
         )
 
+    # _serialise() reads student.face_encoding; eager load it so a class of 40
+    # costs one query rather than forty-one.
     students = (
-        query.order_by(StudentModel.grade.asc(), StudentModel.first_name.asc())
+        query.options(joinedload(StudentModel.face_encoding))
+        .order_by(StudentModel.grade.asc(), StudentModel.first_name.asc())
         .offset(skip)
         .limit(limit)
         .all()

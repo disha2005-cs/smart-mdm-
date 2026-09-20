@@ -39,6 +39,9 @@ services:
       # the bundled frontend, which nginx serves from the same origin.
       BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-}
 
+      # Warm the face model at boot so the first capture is not a cold start.
+      PRELOAD_FACE_MODEL: ${PRELOAD_FACE_MODEL:-true}
+
       SEED_ADMIN_EMPLOYEE_ID: ${SEED_ADMIN_EMPLOYEE_ID:-GOV-001}
       SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@pmposhan.gov.in}
       SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}

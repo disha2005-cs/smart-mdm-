@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api import deps
 from app.core.validators import (
@@ -148,7 +148,15 @@ def read_schools(
             | func.lower(SchoolModel.village).like(term)
         )
 
-    schools = query.order_by(SchoolModel.school_name.asc()).offset(skip).limit(limit).all()
+    # _serialise() reads school.admin; without the eager load that is one
+    # extra query per school (N+1), which on a remote database dominates.
+    schools = (
+        query.options(joinedload(SchoolModel.admin))
+        .order_by(SchoolModel.school_name.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return [_serialise(school) for school in schools]
 
 
@@ -206,7 +214,9 @@ def read_school(
     current_user=Depends(deps.get_current_user),
 ):
     """Get a school by ID."""
-    school = db.query(SchoolModel).filter(SchoolModel.id == id).first()
+    school = db.query(SchoolModel).options(
+        joinedload(SchoolModel.admin)
+    ).filter(SchoolModel.id == id).first()
     if not school:
         raise HTTPException(status_code=404, detail="School not found")
 

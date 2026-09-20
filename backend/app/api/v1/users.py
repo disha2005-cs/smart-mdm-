@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api import deps
 from app.core.security import get_password_hash, verify_password
@@ -221,7 +221,14 @@ def get_all_users(
             | func.lower(User.employee_id).like(term)
         )
 
-    users = query.order_by(User.created_at.desc()).offset(skip).limit(limit).all()
+    # _serialise() reads user.school - eager load it to avoid an N+1.
+    users = (
+        query.options(joinedload(User.school))
+        .order_by(User.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
     return [_serialise(user) for user in users]
 
 
@@ -232,7 +239,7 @@ def get_user(
     current_user: User = Depends(deps.get_current_gov_admin),
 ):
     """Get a user by ID (Government Admin only)."""
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).options(joinedload(User.school)).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return _serialise(user)

@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, contains_eager
 
 from app.api import deps
 from app.core.validators import bad_request, parse_iso_date
@@ -510,9 +510,12 @@ def get_attendance_by_date(
 
 
 def _attendance_for_date(db: Session, current_user, on_date: date):
+    # The rows below read r.student.*; contains_eager reuses the join that is
+    # already here instead of lazy-loading each student separately.
     query = (
         db.query(Attendance)
         .join(Student, Attendance.student_id == Student.id)
+        .options(contains_eager(Attendance.student))
         .filter(Attendance.date == on_date)
     )
 
