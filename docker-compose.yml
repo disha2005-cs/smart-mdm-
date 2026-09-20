@@ -1,0 +1,102 @@
+# Smart Mid-Day Meal Management System
+#
+#   docker compose up --build        # start everything
+#   docker compose down              # stop
+#   docker compose down -v           # stop and wipe the database
+#
+# Open http://localhost:8080 once the frontend reports healthy.
+
+name: smart-mdm
+
+services:
+  # --------------------------------------------------------------- database --
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mdm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mdm_local_password}
+      POSTGRES_DB: ${POSTGRES_DB:-mdm}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      # The backend waits on this, so it must mean "ready for queries", not
+      # merely "process started".
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mdm} -d ${POSTGRES_DB:-mdm}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+    # Not published by default: nothing outside the compose network needs it.
+    # Uncomment to inspect the database with a local client.
+    # ports:
+    #   - "5432:5432"
+
+  # ---------------------------------------------------------------- backend --
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Point DATABASE_URL at a managed instance (Neon, RDS, ...) in .env to
+      # use that instead of the bundled Postgres.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-mdm}:${POSTGRES_PASSWORD:-mdm_local_password}@db:5432/${POSTGRES_DB:-mdm}}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env - see .env.example}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+
+      # Optional S3 photo storage. Left blank, photos are stored on the
+      # uploads volume and served through the backend.
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-}
+      AWS_S3_BUCKET: ${AWS_S3_BUCKET:-}
+
+      # Extra browser origins allowed to call the API directly. Not needed for
+      # the bundled frontend, which nginx serves from the same origin.
+      BACKEND_CORS_ORIGINS: ${BACKEND_CORS_ORIGINS:-}
+
+      SEED_ADMIN_EMPLOYEE_ID: ${SEED_ADMIN_EMPLOYEE_ID:-GOV-001}
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@pmposhan.gov.in}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-admin123}
+    volumes:
+      - uploads:/app/uploads
+      # Survives rebuilds, and catches the model if the build-time download
+      # was skipped.
+      - insightface_models:/opt/insightface
+    # Create the schema, then create the first admin if there is none, then
+    # serve. seed.py is a no-op once an administrator exists.
+    command: >
+      sh -c "python -c 'from app.db_bootstrap import sync_schema; sync_schema()' &&
+             python seed.py &&
+             uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1"
+    expose:
+      - "8000"
+    ports:
+      # Exposed for /docs and direct API calls; the UI does not need it.
+      - "${BACKEND_PORT:-8000}:8000"
+
+  # --------------------------------------------------------------- frontend --
+  frontend:
+    build:
+      context: ./frontend-new
+      args:
+        # Relative, so the browser calls whatever origin served the page and
+        # nginx proxies through to the backend.
+        VITE_API_URL: /api/v1
+    restart: unless-stopped
+    depends_on:
+      backend:
+        # Wait for healthy, not merely started: nginx proxying to a backend
+        # that is not yet accepting connections just serves 502s.
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-8080}:80"
+
+volumes:
+  db_data:
+  uploads:
+  insightface_models:

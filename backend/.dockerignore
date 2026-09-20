@@ -1,0 +1,41 @@
+# Local virtualenv - the image builds its own
+venv/
+env/
+.venv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Secrets: injected as environment variables at run time
+.env
+.env.*
+!.env.example
+
+# Runtime data: these live in named volumes
+uploads/
+!uploads/.gitkeep
+
+# Local tooling and notes
+*.log
+*.db
+*.sqlite3
+.vscode/
+.idea/
+.git/
+.gitignore
+
+# One-off maintenance scripts that are not part of the service
+check_data.py
+clean_meal_data.py
+configure_s3_bucket.py
+diagnose_photo.py
+ensure_photo_columns.py
+verify_photo_columns.py
+add_photo_url_to_db.py
+reset_database.py
+add_photo_url_column.sql

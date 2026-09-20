@@ -1,0 +1,26 @@
+# Installed fresh inside the image by `npm ci`
+node_modules/
+
+# Build output - the image builds its own
+dist/
+build/
+.vite/
+out/
+.webpack/
+
+# Secrets / local config: the API URL is a build arg
+.env
+.env.*
+!.env.example
+
+# Local tooling and notes
+.git/
+.gitignore
+*.log
+build-errors.txt
+test-camera.html
+.vscode/
+.idea/
+
+# Desktop shell, not part of the web image
+electron/

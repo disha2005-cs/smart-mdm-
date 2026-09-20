@@ -1,6 +1,6 @@
 # 🐛 Bug Fixes - Smart Mid-Day Meal System
 
-## ✅ **25 Critical Bugs Fixed**
+## ✅ **59 Bugs Fixed**
 
 ---
 
@@ -264,3 +264,90 @@ python3 main.py
 ---
 
 **All 25 critical bugs have been systematically fixed and tested!** 🎉
+
+---
+
+## 🔧 Full Audit — Correctness, Validation & Containerisation
+
+A complete pass over the codebase. Everything below was verified against a live
+database and, where relevant, against real student photos.
+
+### Blocking
+
+| # | Issue | Effect |
+|---|---|---|
+| 26 | `psycopg` and `boto3` missing from the environment | `import main` failed; the backend could not start at all |
+| 27 | `Inventory(school_id=..., **item_in.model_dump())` passed `school_id` twice | Every "Add Item" request was a `TypeError` 500 |
+| 28 | `HTTPException` used but never imported in `dashboard.py` | `NameError` 500 on the school dashboard |
+| 29 | `regenerate-encoding` stored a base64 **string** in the JSONB float-list column | Silently corrupted the encoding; the student stopped being recognisable |
+| 30 | `system.py` router never registered in `main.py` | Endpoint 404'd |
+| 31 | `/reports/daily|weekly|monthly` and `DELETE /inventory/{id}` called by the UI but never implemented | 404 / 405 |
+| 32 | `StaticFiles(directory="uploads")` with no such directory | Boot failure on a clean checkout |
+
+### Face recognition
+
+| # | Issue | Fix |
+|---|---|---|
+| 33 | Any frame with more than one face was rejected outright | `mark-attendance` now marks **every** recognised student in the frame and reports per-face skip reasons |
+| 34 | The overlay canvas was also the capture canvas | Split in two; the live video is no longer painted over by a frozen still |
+| 35 | The `setInterval` detection loop read React state | Moved to refs; the throttle and in-flight guard actually work now |
+| 36 | Nearest match won regardless of how close the runner-up was | Added an ambiguity margin, so similar-looking students are refused rather than guessed |
+| 37 | Per-student Python loop over all encodings | Single matrix product; multi-face frames stay fast |
+| 38 | InsightFace hardcodes `~/.insightface` and ignores `INSIGHTFACE_HOME` | Model root is now passed explicitly, so the container's baked-in model is found |
+
+### Calculations
+
+| # | Issue | Fix |
+|---|---|---|
+| 39 | Dashboard food and budget totals were hardcoded (`50000`, `5000000`) | Summed from real allocations and budgets |
+| 40 | School dashboard used a flat `students × 0.15 kg`, ignoring the grade-based norms | Runs the real PM POSHAN calculator |
+| 41 | `Reports.tsx` generated 30 days of `Math.random()` data and presented it as history | Replaced with real API data |
+| 42 | "AI health 98.5%", "nutrition compliance 85%", 75%/60% progress bars | Derived from actual recognition confidence and stock status |
+| 43 | Meal totals summed *rounded* per-category kilograms | Totals in grams, converts once |
+| 44 | Attendance rate was `present / records`, but only PRESENT rows ever existed | Added "Close Register" (writes ABSENT rows); rate computed server-side against real school days |
+| 45 | UI compared `'Present'` against stored `'PRESENT'` | Casing normalised; student attendance stats no longer always read zero |
+| 46 | Financial year hardcoded `2026-27` in six places | Computed from the April–March cycle |
+
+### Data integrity
+
+| # | Issue | Fix |
+|---|---|---|
+| 47 | No uniqueness guarantee on attendance | `UNIQUE(student_id, date)`, with de-duplication first |
+| 48 | A conflict mid-batch rolled back students already marked from the same frame | One SAVEPOINT per student |
+| 49 | `POST /meals/{id}/consume` deducted stock **every** time it was called | `inventory_consumed` flag; deleting a consumed record restores the stock |
+| 50 | Alembic has three diverged heads, so `upgrade head` is unusable | Idempotent `db_bootstrap.py` runs at startup and creates a fresh schema from scratch |
+
+### Security
+
+| # | Issue | Fix |
+|---|---|---|
+| 51 | Passwords sent as **query parameters** on change-password / change-email / reset-password | Moved into request bodies — they were landing in access logs |
+| 52 | A school admin could create a student in another school by posting a different `school_id` | School is taken from the token |
+| 53 | Login revealed whether an employee ID existed | One message for every credential failure |
+| 54 | Student IDs generated client-side with `Math.random()` | Server-issued and sequential |
+| 55 | The last government admin could be deleted or deactivated | Blocked |
+| 56 | A short or placeholder JWT secret ran silently | Rejected at boot |
+| 57 | SQL errors returned a stack trace | Clean 503 |
+| 58 | Malformed JWT payload escaped as a 500 | 401 |
+
+### Validation
+
+Added `app/core/validators.py` and applied it across every endpoint: UDISE (11 digits), PIN
+code, Indian phone, email, gender, grade (accepts `5` / `Grade 5` / `V` / `5th`), date of
+birth (past, age 3–25), positive and bounded amounts, unit and category whitelists, and
+financial-year format with a consecutive-years check. Matching constraints were added to the
+forms so problems surface before submitting.
+
+### Containerisation
+
+- `docker compose up --build` brings up PostgreSQL, the API and the UI together
+- nginx serves the SPA and reverse-proxies `/api` and `/uploads`, so everything is same-origin
+  and no CORS configuration is involved
+- The face-recognition model is baked into the backend image
+- `requirements.txt` re-pinned to versions verified to resolve as pure wheels on Linux/Python 3.12
+- CI builds both images, starts the stack and runs an end-to-end login through the proxy
+
+**Bug 59:** `VITE_API_URL.replace('/api/v1','')` returns `''`, which is falsy, so student photo
+URLs fell back to `localhost:8000` behind a proxy. Replaced with a `serverUrl()` helper that
+treats an empty origin as "same origin".
+

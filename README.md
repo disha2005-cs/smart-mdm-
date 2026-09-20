@@ -1,266 +1,356 @@
 # Smart Mid-Day Meal Management System
 
-A comprehensive system for managing mid-day meal programs in schools with AI-powered face recognition for attendance tracking.
+Attendance, meal planning and inventory management for India's PM POSHAN (Mid-Day Meal)
+scheme, with group face recognition for taking attendance.
 
-## Features
+Point a webcam at a group of students, and every recognised face is marked present in one
+capture. The day's meal requirement is then calculated from who actually attended, using the
+official PM POSHAN norms, and deducted from the school's stock.
 
-- **Face Recognition Attendance**: Automatic student attendance using facial recognition
-- **Student Management**: Add, edit, and manage student records with photos
-- **School Administration**: Multi-school support with role-based access
-- **Inventory Management**: Track meal ingredients and supplies
-- **Dashboard & Reports**: Real-time statistics and attendance reports
-- **Government Portal**: Monitor multiple schools from central dashboard
+---
 
-## Tech Stack
+## Contents
 
-**Backend:**
-- Python 3.12
-- FastAPI
-- PostgreSQL with pgvector
-- Face Recognition (dlib)
-- SQLAlchemy ORM
+- [What it does](#what-it-does)
+- [Quick start with Docker](#quick-start-with-docker)
+- [Manual setup](#manual-setup)
+- [Configuration](#configuration)
+- [How the pieces fit together](#how-the-pieces-fit-together)
+- [API overview](#api-overview)
+- [Project layout](#project-layout)
+- [Troubleshooting](#troubleshooting)
 
-**Frontend:**
-- React 18 + TypeScript
-- Vite
-- TailwindCSS
-- Axios
+---
 
-## Installation
+## What it does
 
-⚠️ **IMPORTANT:** Your friend MUST use Python 3.11 or 3.12. Python 3.14 will fail because packages like scikit-learn don't have wheels for it yet.
+**Two portals, one system.**
 
-### Prerequisites
+A *Government* administrator registers schools, appoints a school administrator for each,
+allocates food and budget, and monitors the whole state. A *School* administrator manages
+their own students, takes attendance, plans meals and tracks stock. Every endpoint is scoped
+to the caller's role and school.
 
-- **Python 3.11 or 3.12** (Python 3.14 is too new, packages not compatible yet)
-- Node.js 18+
-- PostgreSQL 14+ (or use Neon DB cloud)
-- Git
+### Face recognition attendance
 
-### 1. Clone the Repository
+- **Multiple students per capture.** The camera detects every face in the frame, matches each
+  one independently, and writes one attendance record per student. Faces that cannot be
+  marked are reported individually with a reason (unrecognised, poor quality, already marked).
+- Uses [InsightFace](https://github.com/deepinsight/insightface) `buffalo_l` — 512-dimension
+  ArcFace embeddings, matched by cosine similarity.
+- A match must also beat the runner-up by a margin, so two similar-looking children are
+  refused rather than guessed between.
+- One record per student per day, enforced by a database constraint, not just a check.
+
+### Meal planning on the government norms
+
+Requirements are calculated per student from their grade, not as a flat per-head figure:
+
+| | Food grains | Pulses | Vegetables | Oil & fat | Calories | Protein |
+|---|---|---|---|---|---|---|
+| **Primary** (I–V) | 100 g | 20 g | 50 g | 5 g | 450 | 12 g |
+| **Upper Primary** (VI–VIII) | 150 g | 30 g | 75 g | 7.5 g | 700 | 20 g |
+
+Classes IX–X are outside the scheme; they are budgeted at the Upper Primary rate and reported
+separately rather than being folded in silently.
+
+The plan is costed from the school's own per-unit inventory prices, flags any ingredient it
+has no price for, and compares the requirement against stock before letting you deduct it.
+
+### Also included
+
+- Inventory with reorder thresholds, stock valuation and low-stock alerts
+- Food allocation workflow (government allocates → approve → lands in the school's stock)
+- Budget allocation and utilisation tracking per financial year
+- Daily / weekly / monthly reports with CSV export
+- Photo storage on local disk, or S3 when configured
+
+---
+
+## Quick start with Docker
+
+**Requirements:** Docker Engine 20.10+ with the Compose plugin (any recent Docker Desktop).
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/smart-mdm-.git
+git clone https://github.com/disha2005-cs/smart-mdm-.git
 cd smart-mdm-
+
+cp .env.example .env
+# Set JWT_SECRET_KEY in .env - it is the only required value:
+#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+
+docker compose up --build
 ```
 
-### 2. Backend Setup
+That one command builds and starts all three services — PostgreSQL, the API and the web UI —
+creates the database schema, and creates the first administrator.
+
+Then open **<http://localhost:8080>** and sign in through the **Government** portal:
+
+| | |
+|---|---|
+| Employee ID | `GOV-001` |
+| Password | `admin123` |
+
+Change that password from **Settings** straight away, or set `SEED_ADMIN_PASSWORD` in `.env`
+before the first `up`.
+
+### First run takes a while
+
+The backend image bakes in the ~300 MB face-recognition model so the first attendance capture
+is not a multi-minute stall. Expect the initial build to take several minutes; later starts
+are fast.
+
+Watch it come up with:
 
 ```bash
-# Navigate to backend directory
-cd backend
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On Linux/Mac:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Create .env file
-copy .env.example .env  # Windows
-# cp .env.example .env  # Linux/Mac
-
-# Edit .env and add your database URL
-# DATABASE_URL=postgresql://user:password@localhost/dbname
-# JWT_SECRET_KEY=your-secret-key-here
-
-# Run database migrations
-alembic upgrade head
-
-# Seed initial data (creates admin user)
-python seed.py
-
-# Start the backend server
-python main.py
+docker compose ps           # all three should report healthy
+docker compose logs -f backend
 ```
 
-Backend will run on `http://localhost:8000`
-
-**Default Admin Credentials:**
-- Government Admin: `GOV-001` / `password123`
-
-### 3. Frontend Setup
+### Everyday commands
 
 ```bash
-# Navigate to frontend directory
-cd ../frontend-new
-
-# Install dependencies
-npm install
-
-# Create .env file
-copy .env.example .env  # Windows
-# cp .env.example .env  # Linux/Mac
-
-# Edit .env and set backend URL
-# VITE_API_URL=http://localhost:8000/api/v1
-
-# Start development server
-npm run dev
+docker compose up -d                 # start in the background
+docker compose down                  # stop, keep the data
+docker compose down -v               # stop and wipe the database and uploads
+docker compose logs -f backend       # follow the API logs
+docker compose exec backend python seed.py     # re-run the admin bootstrap
+docker compose build --no-cache backend        # force a clean rebuild
 ```
 
-Frontend will run on `http://localhost:5173`
+### What runs where
 
-### 4. Access the Application
+| Service | Port | Purpose |
+|---|---|---|
+| `frontend` | <http://localhost:8080> | React UI, served by nginx |
+| `backend` | <http://localhost:8000/docs> | FastAPI + interactive API docs |
+| `db` | not published | PostgreSQL 16 |
 
-Open your browser and navigate to:
-- Frontend: `http://localhost:5173`
-- Backend API: `http://localhost:8000/docs` (Swagger UI)
+The browser only ever talks to port 8080: nginx reverse-proxies `/api` and `/uploads` through
+to the backend. That means same-origin requests and no CORS configuration to get wrong. Port
+8000 is published purely so you can reach `/docs` and call the API directly.
 
-## Project Structure
+### Using a managed database instead
 
-```
-smart-mdm-/
-├── backend/
-│   ├── alembic/              # Database migrations
-│   ├── app/
-│   │   ├── api/              # API routes
-│   │   ├── core/             # Core configs
-│   │   ├── models/           # Database models
-│   │   ├── schemas/          # Pydantic schemas
-│   │   └── services/         # Business logic
-│   ├── uploads/              # File uploads
-│   ├── main.py               # FastAPI app entry
-│   ├── requirements.txt      # Python dependencies
-│   └── .env                  # Environment variables
-│
-└── frontend-new/
-    ├── src/
-    │   ├── components/       # React components
-    │   ├── pages/            # Page components
-    │   ├── lib/              # Utilities
-    │   └── types/            # TypeScript types
-    ├── package.json          # Node dependencies
-    └── .env                  # Frontend config
-```
-
-## Environment Variables
-
-### Backend (.env)
+Leave the bundled Postgres out of it by setting `DATABASE_URL` in `.env`:
 
 ```env
-# Database
-DATABASE_URL=postgresql://user:password@host:port/database
-
-# JWT Authentication
-JWT_SECRET_KEY=your-secret-key-here
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=1440
+DATABASE_URL=postgresql://user:password@your-host.neon.tech/neondb?sslmode=require
 ```
 
-### Frontend (.env)
+---
 
-```env
-# Backend API URL
-VITE_API_URL=http://localhost:8000/api/v1
-```
+## Manual setup
 
-## Usage
+For working on the code without Docker.
 
-### Adding Students
-
-1. Login as School Admin
-2. Navigate to "Students" page
-3. Click "Add Student"
-4. Fill in student details and upload a clear photo
-5. Face encoding will be generated automatically
-
-### Marking Attendance
-
-1. Navigate to "Attendance" page
-2. Click "Start Camera"
-3. Allow camera permissions
-4. Students will be automatically recognized and attendance marked
-
-### Viewing Reports
-
-1. Navigate to "Dashboard" for daily statistics
-2. Use "Reports" page for detailed attendance reports
-3. Filter by date range and generate exports
-
-## Camera Requirements
-
-- **HTTPS Required**: Camera access requires HTTPS in production
-- For local development, use `http://localhost:5173`
-- For production/sharing, use ngrok or deploy with SSL certificate
-
-## API Documentation
-
-Once the backend is running, access the interactive API documentation at:
-- Swagger UI: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-
-## Troubleshooting
-
-### Face Recognition Not Working
-
-1. Ensure student photos are clear and well-lit
-2. Check that face encodings were generated (re-upload photo if needed)
-3. Verify camera permissions are granted
-4. Ensure backend face recognition service is running
-
-### Database Connection Error
-
-1. Check PostgreSQL is running
-2. Verify DATABASE_URL in backend/.env
-3. Ensure database exists and is accessible
-4. Run migrations: `alembic upgrade head`
-
-### Port Already in Use
-
-```bash
-# Backend (port 8000)
-# Windows: netstat -ano | findstr :8000
-# Linux/Mac: lsof -i :8000
-
-# Frontend (port 5173)
-# Windows: netstat -ano | findstr :5173
-# Linux/Mac: lsof -i :5173
-```
-
-## Building for Production
+**Requirements:** Python 3.12+, Node.js 20+, PostgreSQL 14+.
 
 ### Backend
 
 ```bash
 cd backend
+
+python -m venv venv
+source venv/bin/activate          # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-python main.py  # Or use gunicorn/uvicorn
+
+cp .env.example .env              # then fill in DATABASE_URL and JWT_SECRET_KEY
+
+python seed.py                    # creates the first admin (schema is created on boot)
+uvicorn main:app --reload --port 8000
 ```
+
+API docs: <http://localhost:8000/docs>
+
+The first attendance request downloads the InsightFace model (~300 MB) into
+`~/.insightface`. It is a one-time cost.
 
 ### Frontend
 
 ```bash
 cd frontend-new
-npm run build
-npm run preview  # Test production build
-# Or serve with: npx http-server dist -p 5173
+
+npm install
+cp .env.example .env              # defaults to http://localhost:8000/api/v1
+npm run dev
 ```
 
-## Contributing
+UI: <http://localhost:5173>
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+### Useful scripts
 
-## License
-
-This project is licensed under the MIT License.
-
-## Support
-
-For issues or questions:
-- Open an issue on GitHub
-- Contact: your-email@example.com
+```bash
+npm run build      # type-check and build for production
+npm run lint       # oxlint
+npm run preview    # serve the production build locally
+```
 
 ---
 
-Built with ❤️ for better school meal management
+## Configuration
+
+Every value has a sensible default except `JWT_SECRET_KEY`.
+
+### Root `.env` — used by Docker Compose
+
+| Variable | Default | Notes |
+|---|---|---|
+| `JWT_SECRET_KEY` | — | **Required.** Minimum 32 characters; the app refuses to start otherwise |
+| `DATABASE_URL` | bundled Postgres | Set to use a managed database instead |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `mdm` / `mdm_local_password` / `mdm` | Credentials for the bundled Postgres |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Login session length |
+| `SEED_ADMIN_EMPLOYEE_ID` | `GOV-001` | First administrator, created only when none exists |
+| `SEED_ADMIN_EMAIL` | `admin@pmposhan.gov.in` | |
+| `SEED_ADMIN_PASSWORD` | `admin123` | **Change before deploying anywhere public** |
+| `FRONTEND_PORT` / `BACKEND_PORT` | `8080` / `8000` | Host ports |
+| `AWS_*` | empty | Optional S3 photo storage; falls back to local disk |
+| `BACKEND_CORS_ORIGINS` | empty | Only needed for a browser app on a different origin |
+
+### `backend/.env` — used for manual setup
+
+Same variables, minus the Compose-only ones. See `backend/.env.example`.
+
+### `frontend-new/.env`
+
+| Variable | Default | Notes |
+|---|---|---|
+| `VITE_API_URL` | `http://localhost:8000/api/v1` | The Docker image builds with `/api/v1` so the UI is same-origin |
+
+---
+
+## How the pieces fit together
+
+```
+                 ┌──────────────────────────────────────────┐
+  Browser  ────▶  │  nginx  :80                              │
+   :8080          │    /            → React SPA (static)     │
+                  │    /api/*       → proxy ─┐               │
+                  │    /uploads/*   → proxy ─┤               │
+                  └──────────────────────────┼───────────────┘
+                                             ▼
+                              ┌────────────────────────────┐
+                              │  FastAPI  :8000            │
+                              │    JWT auth, role scoping  │
+                              │    InsightFace buffalo_l   │
+                              │    PM POSHAN calculator    │
+                              └──────────┬─────────────────┘
+                                         ▼
+                              ┌────────────────────────────┐
+                              │  PostgreSQL 16             │
+                              └────────────────────────────┘
+```
+
+**Attendance flow.** The browser grabs a frame from the webcam and posts it to
+`/attendance/detect-faces` roughly once a second to draw the boxes. When faces are ready it
+posts the frame to `/attendance/mark-attendance`, which detects every face, matches each
+against that school's registered encodings in a single matrix operation, and writes an
+attendance row per student — each inside its own savepoint, so one conflict cannot discard the
+students already marked from the same frame.
+
+**Schema.** Tables are created and reconciled at startup by `app/db_bootstrap.py`, which is
+idempotent. The Alembic history in `backend/alembic/` has diverged into several heads and is
+kept only for reference; it is not used to migrate.
+
+---
+
+## API overview
+
+Full interactive documentation at `/docs` once the backend is running.
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST /auth/login`, `GET /auth/me` |
+| Attendance | `POST /attendance/detect-faces`, `POST /attendance/mark-attendance`, `POST /attendance/mark-absent`, `GET /attendance/today`, `GET /attendance/statistics` |
+| Students | `GET|POST /students/`, `PUT|DELETE /students/{id}`, `POST /students/{id}/regenerate-encoding` |
+| Meals | `POST /meals/plan`, `POST /meals/record-from-plan`, `POST /meals/{id}/consume` |
+| Inventory | `GET|POST /inventory/`, `PUT|DELETE /inventory/{id}`, `POST /inventory/{id}/adjust`, `GET /inventory/summary` |
+| Schools | `GET|POST /schools/`, `PUT|DELETE /schools/{id}`, `GET /schools/districts` |
+| Users | `GET|POST /users/`, `POST /users/change-password`, `POST /users/{id}/reset-password` |
+| Allocations | `GET|POST /allocations/`, `POST /allocations/{id}/approve`, `POST /allocations/{id}/reject` |
+| Budgets | `GET|POST /budgets/`, `POST /budgets/{id}/utilize`, `GET /budgets/summary/government` |
+| Reports | `GET /reports/daily|weekly|monthly|inventory|schools` |
+| Alerts | `GET|POST /alerts/`, `POST /alerts/scan-low-stock` |
+
+Authenticate with `Authorization: Bearer <token>` from the login response.
+
+---
+
+## Project layout
+
+```
+.
+├── docker-compose.yml          One command to run the whole stack
+├── .env.example                Compose configuration template
+│
+├── backend/
+│   ├── Dockerfile              Multi-stage; bakes in the face model
+│   ├── requirements.txt        Pinned, verified versions
+│   ├── main.py                 App factory, CORS, error handlers, routers
+│   ├── seed.py                 Creates the first administrator
+│   └── app/
+│       ├── api/v1/             One module per resource
+│       ├── core/
+│       │   ├── config.py       Settings, with validation at boot
+│       │   ├── security.py     Password hashing and JWT
+│       │   └── validators.py   Shared field validation
+│       ├── models/             SQLAlchemy models
+│       ├── schemas/            Pydantic request/response models
+│       ├── services/
+│       │   ├── face_recognition_service.py
+│       │   ├── meal_calculator.py       PM POSHAN norms
+│       │   ├── photo_storage.py         S3 with local fallback
+│       │   └── s3_service.py
+│       └── db_bootstrap.py     Idempotent schema creation
+│
+└── frontend-new/
+    ├── Dockerfile              Vite build → nginx
+    ├── nginx.conf              SPA routing + API proxy
+    └── src/
+        ├── components/         Layout, KPICard, FaceRecognitionCamera
+        ├── pages/              One per route
+        ├── lib/api.ts          Typed API client
+        └── types/              Shared TypeScript types
+```
+
+---
+
+## Troubleshooting
+
+**`JWT_SECRET_KEY must be at least 32 characters`**
+Set it in `.env`. Generate one with
+`python -c "import secrets; print(secrets.token_urlsafe(48))"`.
+
+**The camera does not start.**
+Browsers only allow camera access on `localhost` or over HTTPS. `http://localhost:8080` is
+fine; `http://192.168.x.x:8080` is not — put it behind HTTPS to use it from another machine.
+
+**"No student face encodings found."**
+Students need a photo with a clearly visible face. Add or re-upload one; if the photo is fine
+but the encoding failed, use *Regenerate encoding* on the student.
+
+**A face is detected but never recognised.**
+The photo on file may be too dark, too small or at too steep an angle. Re-upload a clear,
+front-facing photo. The match must also beat the runner-up by a margin, so two students with
+very similar photos are deliberately refused rather than guessed.
+
+**Backend keeps restarting under Compose.**
+`docker compose logs backend`. Usually a bad `DATABASE_URL` or a missing `JWT_SECRET_KEY`.
+
+**The first capture is very slow.**
+The model loads into memory on first use. If the build-time download was skipped it also has
+to fetch ~300 MB. Subsequent captures are fast.
+
+**Port already in use.**
+Change `FRONTEND_PORT` or `BACKEND_PORT` in `.env`.
+
+---
+
+## Notes on the stack
+
+Python 3.12+ · FastAPI · SQLAlchemy 2 · PostgreSQL 16 · InsightFace + ONNX Runtime ·
+React 19 · TypeScript · Vite · Tailwind CSS · Recharts
+
+Passwords are hashed with bcrypt. Sessions are JWTs. Every list endpoint is scoped by the
+caller's role and school, and credentials are only ever sent in request bodies.

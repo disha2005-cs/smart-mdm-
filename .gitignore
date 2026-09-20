@@ -30,7 +30,10 @@ backend/app.db
 .env.*
 !.env.example
 backend/.env
+backend/.env.*
+!backend/.env.example
 frontend-new/.env
+frontend-new/.env.*
 !frontend-new/.env.example
 
 # IDE and Editor
@@ -74,15 +77,17 @@ htmlcov/
 # Uploads and user data
 backend/uploads/
 !backend/uploads/.gitkeep
+
+# Ignore stray images anywhere EXCEPT the frontend's own assets, otherwise a
+# newly added logo or illustration is silently left out of commits.
 *.jpeg
 *.jpg
 *.png
 *.gif
 *.pdf
-!public/**/*.png
-!public/**/*.jpg
-!public/**/*.jpeg
-!public/**/*.gif
+!frontend-new/public/**
+!frontend-new/src/assets/**
+!docs/**
 
 # Temporary files
 temp/
@@ -124,3 +129,9 @@ frontend-new/.webpack/
 # Local development
 .local/
 .cache/
+
+# Docker
+# Compose overrides are machine-specific; the committed compose file is the
+# shared one.
+docker-compose.override.yml
+docker-compose.*.local.yml
