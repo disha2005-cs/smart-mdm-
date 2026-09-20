@@ -194,9 +194,14 @@ jobs:
 
       - name: Write a CI .env
         run: |
+          # Replace the placeholder lines rather than appending duplicates, so
+          # the values do not depend on which occurrence Compose keeps.
+          secret=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
           cp .env.example .env
-          python -c "import secrets; print('JWT_SECRET_KEY=' + secrets.token_urlsafe(48))" >> .env
-          echo "SEED_ADMIN_PASSWORD=ci-admin-password-1" >> .env
+          sed -i "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=$secret|" .env
+          sed -i "s|^SEED_ADMIN_PASSWORD=.*|SEED_ADMIN_PASSWORD=ci-admin-password-1|" .env
+          grep -qE "^JWT_SECRET_KEY=.{32,}$" .env || { echo "::error::JWT secret not written"; exit 1; }
+          grep -qx "SEED_ADMIN_PASSWORD=ci-admin-password-1" .env || { echo "::error::seed password not written"; exit 1; }
 
       - name: Build and start the whole stack
         run: docker compose up -d --build --wait --wait-timeout 900
