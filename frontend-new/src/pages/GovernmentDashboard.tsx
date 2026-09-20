@@ -13,8 +13,6 @@ import {
   AlertCircle,
   Bell,
   FileText,
-  Cpu,
-  Wifi,
   School,
   Wheat,
   IndianRupee,
@@ -22,7 +20,7 @@ import {
   FilePlus,
   Radio,
 } from 'lucide-react';
-import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { dashboardAPI } from '../lib/api';
 
 interface GovernmentDashboardData {
@@ -60,9 +58,14 @@ interface GovernmentDashboardData {
     attendance_today: number;
     attendance_percentage: number;
   };
+  financial_year: string;
+  budget: {
+    allocated: number;
+    utilized: number;
+    remaining: number;
+    utilization_percentage: number;
+  };
 }
-
-const COLORS = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export default function GovernmentDashboard() {
   const navigate = useNavigate();
@@ -90,11 +93,11 @@ export default function GovernmentDashboard() {
 
   const quickActions = [
     { icon: School, label: 'Register School', color: 'primary', onClick: () => navigate('/schools') },
-    { icon: Wheat, label: 'Allocate Food', color: 'success', onClick: () => {} },
-    { icon: IndianRupee, label: 'Allocate Budget', color: 'warning', onClick: () => {} },
+    { icon: Wheat, label: 'Allocate Food', color: 'success', onClick: () => navigate('/food-allocation') },
+    { icon: IndianRupee, label: 'Allocate Budget', color: 'warning', onClick: () => navigate('/budget-allocation') },
     { icon: PackageCheck, label: 'Verify Inventory', color: 'info', onClick: () => navigate('/inventory') },
     { icon: FilePlus, label: 'Generate Reports', color: 'purple', onClick: () => navigate('/reports') },
-    { icon: Radio, label: 'Send Circular', color: 'danger', onClick: () => {} },
+    { icon: Radio, label: 'Notifications', color: 'danger', onClick: () => navigate('/notifications') },
   ];
 
   if (loading) {
@@ -135,6 +138,26 @@ export default function GovernmentDashboard() {
               <p className="text-2xl font-semibold">{currentTime.toLocaleDateString('en-IN')}</p>
               <p className="text-primary-100">{currentTime.toLocaleTimeString('en-IN')}</p>
             </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  onClick={action.onClick}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 p-4 text-center transition-all hover:border-primary-300 hover:bg-primary-50"
+                >
+                  <Icon className="h-6 w-6 text-primary-600" />
+                  <span className="text-xs font-semibold text-slate-700">{action.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -280,23 +303,32 @@ export default function GovernmentDashboard() {
                   <span className="text-sm font-medium text-slate-700">Total Food Allocated</span>
                   <span className="text-xs text-slate-500">This Month</span>
                 </div>
-                <p className="text-3xl font-bold text-orange-600">{data.kpis.food_allocated.value} kg</p>
-                <div className="mt-3 bg-white rounded-full h-2 overflow-hidden">
-                  <div className="bg-orange-500 h-full" style={{ width: '75%' }}></div>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">75% of monthly target</p>
+                <p className="text-3xl font-bold text-orange-600">
+                  {data.kpis.food_allocated.value.toLocaleString('en-IN')} kg
+                </p>
+                <p className="text-xs text-slate-500 mt-2">{data.kpis.food_allocated.trend}</p>
               </div>
 
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-slate-700">Budget Allocated</span>
-                  <span className="text-xs text-slate-500">FY 2026-27</span>
+                  <span className="text-xs text-slate-500">FY {data.financial_year}</span>
                 </div>
-                <p className="text-3xl font-bold text-green-600">₹{(data.kpis.budget_allocated.value / 100000).toFixed(1)}L</p>
+                <p className="text-3xl font-bold text-green-600">
+                  ₹{(data.budget.allocated / 100000).toFixed(1)}L
+                </p>
+                {/* Bar reflects real utilisation instead of a fixed 60%. */}
                 <div className="mt-3 bg-white rounded-full h-2 overflow-hidden">
-                  <div className="bg-green-500 h-full" style={{ width: '60%' }}></div>
+                  <div
+                    className="bg-green-500 h-full transition-all"
+                    style={{ width: `${Math.min(data.budget.utilization_percentage, 100)}%` }}
+                  />
                 </div>
-                <p className="text-xs text-slate-500 mt-1">60% of annual budget</p>
+                <p className="text-xs text-slate-500 mt-1">
+                  ₹{(data.budget.utilized / 100000).toFixed(1)}L utilised (
+                  {data.budget.utilization_percentage}%) · ₹{(data.budget.remaining / 100000).toFixed(1)}L
+                  remaining
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

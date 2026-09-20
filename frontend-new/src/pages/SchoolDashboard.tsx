@@ -9,8 +9,6 @@ import {
   Package,
   AlertTriangle,
   TrendingUp,
-  Camera,
-  Bell,
   UserPlus,
   ScanFace,
   ClipboardCheck,
@@ -18,7 +16,7 @@ import {
   PackageCheck,
   FileText,
 } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { dashboardAPI } from '../lib/api';
 
 interface DashboardData {
@@ -90,10 +88,10 @@ export default function SchoolDashboard() {
   };
 
   const quickActions = [
-    { icon: UserPlus, label: 'Register Student', color: 'primary', onClick: () => navigate('/students') },
-    { icon: ScanFace, label: 'Register Face', color: 'success', onClick: () => navigate('/students') },
+    { icon: UserPlus, label: 'Register Student', color: 'primary', onClick: () => navigate('/student-management') },
+    { icon: ScanFace, label: 'Mark Attendance', color: 'success', onClick: () => navigate('/attendance') },
     { icon: ClipboardCheck, label: 'Take Attendance', color: 'info', onClick: () => navigate('/attendance') },
-    { icon: Calculator, label: 'Generate Meals', color: 'warning', onClick: () => {} },
+    { icon: Calculator, label: 'Generate Meals', color: 'warning', onClick: () => navigate('/meals') },
     { icon: PackageCheck, label: 'Verify Inventory', color: 'purple', onClick: () => navigate('/inventory') },
     { icon: FileText, label: 'Generate Report', color: 'danger', onClick: () => navigate('/reports') },
   ];
@@ -147,7 +145,7 @@ export default function SchoolDashboard() {
             value={data.kpis.total_students.value}
             trend={data.kpis.total_students.trend}
             color="primary"
-            onClick={() => navigate('/students')}
+            onClick={() => navigate('/student-management')}
           />
           <KPICard
             icon={UserCheck}
@@ -187,6 +185,26 @@ export default function SchoolDashboard() {
             trend={data.kpis.attendance_percentage.trend}
             color="success"
           />
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {quickActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.label}
+                  onClick={action.onClick}
+                  className="flex flex-col items-center gap-2 rounded-xl border border-slate-200 p-4 text-center transition-all hover:border-primary-300 hover:bg-primary-50"
+                >
+                  <Icon className="h-6 w-6 text-primary-600" />
+                  <span className="text-xs font-semibold text-slate-700">{action.label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Attendance Analytics */}
