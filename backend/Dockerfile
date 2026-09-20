@@ -31,7 +31,8 @@ RUN python -m venv /opt/venv \
 # offline host never works at all. A failure here is not fatal: the model is
 # fetched at runtime into the mounted models volume instead.
 ENV INSIGHTFACE_HOME=/opt/insightface
-RUN /opt/venv/bin/python -c "\
+RUN mkdir -p /opt/insightface && \
+    /opt/venv/bin/python -c "\
 from insightface.app import FaceAnalysis; \
 FaceAnalysis(name='buffalo_l', providers=['CPUExecutionProvider']).prepare(ctx_id=0, det_size=(640, 640)); \
 print('buffalo_l model ready')" || echo "WARNING: model pre-download failed; it will download on first use"
