@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 from app.models.user import UserRole
@@ -14,11 +14,11 @@ class UserBase(BaseModel):
 
 # Create User (for adding school admin)
 class UserCreate(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: str = Field(..., min_length=1, max_length=60)
+    last_name: str = Field(..., min_length=1, max_length=60)
     email: EmailStr
     phone: Optional[str] = None
-    password: str
+    password: str = Field(..., min_length=8, max_length=128)
     school_id: int  # Required for school admin
     designation: Optional[str] = "School Administrator"
 
@@ -39,13 +39,14 @@ class UserResponse(BaseModel):
     email: str
     first_name: str
     last_name: str
-    phone: Optional[str]
+    phone: Optional[str] = None
     role: UserRole
-    school_id: Optional[int]
-    designation: Optional[str]
+    school_id: Optional[int] = None
+    designation: Optional[str] = None
     is_active: bool
-    created_at: datetime
-    
+    created_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+
     class Config:
         from_attributes = True
 

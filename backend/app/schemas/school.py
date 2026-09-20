@@ -44,7 +44,8 @@ class SchoolUpdate(BaseModel):
 
 class School(SchoolBase):
     id: int
-    created_at: datetime
+    is_active: bool = True
+    created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     has_admin: bool = False  # Computed field
     admin_name: Optional[str] = None
