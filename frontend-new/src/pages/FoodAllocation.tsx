@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Package, Wheat, Calendar, TrendingUp, Plus, Check, X, Clock } from 'lucide-react';
+import { Package, Plus, Check, X, Clock } from 'lucide-react';
 import { allocationsAPI, schoolsAPI } from '../lib/api';
 
 interface School {
@@ -64,14 +64,27 @@ export default function FoodAllocation() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const schoolId = parseInt(form.school_id, 10);
+    const quantity = parseFloat(form.quantity);
+
+    if (!Number.isFinite(schoolId) || schoolId <= 0) {
+      alert('Please select a school');
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      alert('Quantity must be greater than 0');
+      return;
+    }
+
     try {
       await allocationsAPI.create({
-        school_id: parseInt(form.school_id),
-        item_name: form.item_name,
+        school_id: schoolId,
+        item_name: form.item_name.trim(),
         category: form.category,
-        quantity: parseFloat(form.quantity),
+        quantity,
         unit: form.unit,
-        notes: form.notes || null
+        notes: form.notes.trim() || null
       });
       await fetchData();
       setShowModal(false);
@@ -117,10 +130,12 @@ export default function FoodAllocation() {
       REJECTED: X,
       DELIVERED: Package
     };
-    const Icon = icons[status as keyof typeof icons];
-    
+    // Fall back rather than crash on a status the UI does not know about.
+    const Icon = icons[status as keyof typeof icons] ?? Clock;
+    const style = styles[status as keyof typeof styles] ?? 'bg-slate-100 text-slate-700';
+
     return (
-      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${styles[status as keyof typeof styles]}`}>
+      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${style}`}>
         <Icon className="h-3 w-3" />
         {status}
       </span>

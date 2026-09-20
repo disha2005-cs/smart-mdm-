@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Layout from '../components/Layout';
-import { IndianRupee, Calendar, TrendingUp, Plus, X, Building2 } from 'lucide-react';
-import { budgetsAPI, schoolsAPI } from '../lib/api';
+import { Plus, X, Building2 } from 'lucide-react';
+import { budgetsAPI, currentFinancialYear, getErrorMessage, schoolsAPI } from '../lib/api';
 
 interface School {
   id: number;
@@ -39,23 +39,22 @@ export default function BudgetAllocation() {
   const [summary, setSummary] = useState<BudgetSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  // Derived from today's date instead of a hardcoded year, so the page keeps
+  // working after 31 March.
+  const financialYear = currentFinancialYear();
   const [form, setForm] = useState({
     school_id: '',
-    financial_year: '2026-27',
+    financial_year: financialYear,
     allocated_amount: ''
   });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [budgetsRes, schoolsRes, summaryRes] = await Promise.all([
-        budgetsAPI.getAll('2026-27'),
+        budgetsAPI.getAll(financialYear),
         schoolsAPI.getAll(),
-        budgetsAPI.getSummary('2026-27')
+        budgetsAPI.getSummary(financialYear)
       ]);
       setBudgets(budgetsRes.data);
       setSchools(schoolsRes.data);
@@ -65,29 +64,46 @@ export default function BudgetAllocation() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [financialYear]);
+
+  useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const schoolId = parseInt(form.school_id, 10);
+    const amount = parseFloat(form.allocated_amount);
+
+    if (!Number.isFinite(schoolId) || schoolId <= 0) {
+      alert('Please select a school');
+      return;
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert('Allocated amount must be greater than 0');
+      return;
+    }
+
     try {
       await budgetsAPI.allocate({
-        school_id: parseInt(form.school_id),
+        school_id: schoolId,
         financial_year: form.financial_year,
-        allocated_amount: parseFloat(form.allocated_amount)
+        allocated_amount: amount
       });
       await fetchData();
       setShowModal(false);
       resetForm();
     } catch (err: any) {
       console.error('Error allocating budget:', err);
-      alert(err.response?.data?.detail || 'Failed to allocate budget');
+      alert(getErrorMessage(err, 'Failed to allocate budget'));
     }
   };
 
   const resetForm = () => {
     setForm({
       school_id: '',
-      financial_year: '2026-27',
+      financial_year: financialYear,
       allocated_amount: ''
     });
   };
@@ -290,9 +306,15 @@ export default function BudgetAllocation() {
                   className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none"
                   required
                 >
-                  <option value="2026-27">2026-27</option>
-                  <option value="2027-28">2027-28</option>
-                  <option value="2028-29">2028-29</option>
+                  {[0, 1, 2].map((offset) => {
+                    const year = parseInt(financialYear.split('-')[0], 10) + offset;
+                    const value = `${year}-${String((year + 1) % 100).padStart(2, '0')}`;
+                    return (
+                      <option key={value} value={value}>
+                        {value}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 

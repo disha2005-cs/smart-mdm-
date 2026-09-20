@@ -3,7 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
   Users,
-  Camera,
   Package,
   FileText,
   School as SchoolIcon,
@@ -14,7 +13,6 @@ import {
   Clock,
   ChevronRight,
   Settings,
-  ScanFace,
   ClipboardCheck,
   Wheat,
   IndianRupee,
@@ -37,6 +35,8 @@ const getMenuItems = (role: string) => {
       { icon: IndianRupee, label: 'Budget Allocation', path: '/budget-allocation' },
       { icon: Package, label: 'Inventory Monitoring', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
+      { icon: UserCog, label: 'Users & Roles', path: '/users' },
+      { icon: Bell, label: 'Notifications', path: '/notifications' },
       { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   } else {
@@ -48,6 +48,7 @@ const getMenuItems = (role: string) => {
       { icon: Utensils, label: 'Meal Management', path: '/meals' },
       { icon: Package, label: 'Inventory Management', path: '/inventory' },
       { icon: FileText, label: 'Reports & Analytics', path: '/reports' },
+      { icon: Bell, label: 'Notifications', path: '/notifications' },
       { icon: Settings, label: 'Settings', path: '/settings' },
     ];
   }
@@ -92,7 +93,13 @@ const Layout = ({ children }: LayoutProps) => {
 
   // Get user role from localStorage
   const userStr = localStorage.getItem('user');
-  const user = userStr ? JSON.parse(userStr) : { role: 'SCHOOL' };
+  let user: { role: string } = { role: 'SCHOOL' };
+  try {
+    if (userStr) user = JSON.parse(userStr);
+  } catch {
+    // Corrupt session data must not take the whole layout down.
+    localStorage.removeItem('user');
+  }
   const menuItems = getMenuItems(user.role);
 
   const handleLogout = () => {
@@ -104,7 +111,10 @@ const Layout = ({ children }: LayoutProps) => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const q = query.trim();
-    navigate(q ? `/students?q=${encodeURIComponent(q)}` : '/students');
+    // Government admins have no student page; send them to schools instead,
+    // otherwise the search landed on a 403 screen.
+    const base = user.role === 'GOVERNMENT' ? '/schools' : '/student-management';
+    navigate(q ? `${base}?q=${encodeURIComponent(q)}` : base);
   };
 
   const activeItem = menuItems.find((m) => m.path === location.pathname);

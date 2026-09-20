@@ -510,7 +510,7 @@ const Schools = () => {
               <div className="grid grid-cols-2 gap-5">
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">UDISE Code</label>
-                  <input type="text" value={form.udise_code} onChange={(e) => setForm({ ...form, udise_code: e.target.value })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" required />
+                  <input type="text" inputMode="numeric" maxLength={11} pattern="\d{11}" title="UDISE code is exactly 11 digits" placeholder="11-digit UDISE code" value={form.udise_code} onChange={(e) => setForm({ ...form, udise_code: e.target.value.replace(/\D/g, '').slice(0, 11) })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" required />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Status</label>
@@ -569,7 +569,7 @@ const Schools = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Pin Code</label>
-                  <input type="text" value={form.pin_code} onChange={(e) => setForm({ ...form, pin_code: e.target.value })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" />
+                  <input type="text" inputMode="numeric" maxLength={6} pattern="[1-9]\d{5}" title="6-digit PIN code" value={form.pin_code} onChange={(e) => setForm({ ...form, pin_code: e.target.value.replace(/\D/g, '').slice(0, 6) })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" />
                 </div>
               </div>
 
@@ -580,7 +580,7 @@ const Schools = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Principal Phone</label>
-                  <input type="text" value={form.principal_phone} onChange={(e) => setForm({ ...form, principal_phone: e.target.value })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" />
+                  <input type="tel" inputMode="numeric" maxLength={10} pattern="[6-9]\d{9}" title="10-digit Indian mobile number" value={form.principal_phone} onChange={(e) => setForm({ ...form, principal_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" />
                 </div>
               </div>
 
@@ -591,7 +591,7 @@ const Schools = () => {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-slate-700 mb-2">Phone</label>
-                  <input type="text" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" />
+                  <input type="tel" inputMode="numeric" maxLength={10} pattern="[6-9]\d{9}" title="10-digit Indian mobile number" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value.replace(/\D/g, '').slice(0, 10) })} className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors" />
                 </div>
               </div>
 

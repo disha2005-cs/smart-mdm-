@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Utensils, ArrowLeft, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, User, Lock, Eye, EyeOff } from 'lucide-react';
 import { authAPI } from '../lib/api';
 
 interface LoginProps {
@@ -65,8 +65,8 @@ const Login = ({ onLogin }: LoginProps) => {
 
   const fillDemo = () => {
     setFormData({
-      username: portal === 'government' ? 'GOV-001' : 'SCH-001',
-      password: 'password123',
+      username: portal === 'government' ? 'GOV-001' : '',
+      password: portal === 'government' ? 'admin123' : '',
     });
     setError('');
   };
@@ -154,16 +154,29 @@ const Login = ({ onLogin }: LoginProps) => {
 
           {/* Demo credentials */}
           <div className="mt-6 p-4 bg-primary-50 rounded-xl border border-primary-100">
-            <p className="text-xs text-primary-700 font-semibold mb-1">Demo Credentials</p>
-            <p className="text-sm text-primary-800">
-              {portal === 'government' ? 'GOV-001' : 'SCH-001'} / password123
-            </p>
-            <button
-              onClick={fillDemo}
-              className="text-xs text-primary-600 hover:text-primary-800 font-semibold mt-1"
-            >
-              Click to auto-fill &rarr;
-            </button>
+            {portal === 'government' ? (
+              <>
+                <p className="text-xs text-primary-700 font-semibold mb-1">Default Administrator</p>
+                <p className="text-sm text-primary-800">GOV-001 / admin123</p>
+                <p className="text-xs text-primary-600 mt-1">
+                  Created by <code>seed.py</code>. Change this password after first login.
+                </p>
+                <button
+                  type="button"
+                  onClick={fillDemo}
+                  className="text-xs text-primary-600 hover:text-primary-800 font-semibold mt-1"
+                >
+                  Click to auto-fill &rarr;
+                </button>
+              </>
+            ) : (
+              <>
+                <p className="text-xs text-primary-700 font-semibold mb-1">School Login</p>
+                <p className="text-sm text-primary-800">
+                  Use the employee ID and password issued by your government administrator.
+                </p>
+              </>
+            )}
           </div>
         </div>
       </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
-import { Settings as SettingsIcon, User, Shield, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Mail } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Lock, Eye, EyeOff, CheckCircle, AlertCircle, Mail } from 'lucide-react';
+import { getErrorMessage, usersAPI } from '../lib/api';
 import api from '../lib/api';
 
 export default function Settings() {
@@ -41,8 +42,13 @@ export default function Settings() {
     setSuccess('');
 
     // Validation
-    if (newPassword.length < 6) {
-      setError('New password must be at least 6 characters');
+    if (newPassword.length < 8) {
+      setError('New password must be at least 8 characters');
+      return;
+    }
+
+    if (!/[A-Za-z]/.test(newPassword) || !/\d/.test(newPassword)) {
+      setError('New password must contain at least one letter and one digit');
       return;
     }
 
@@ -59,12 +65,8 @@ export default function Settings() {
     setLoading(true);
 
     try {
-      await api.post('/users/change-password', null, {
-        params: {
-          current_password: currentPassword,
-          new_password: newPassword
-        }
-      });
+      // Body, not query params - query strings land in server access logs.
+      await usersAPI.changePassword(currentPassword, newPassword);
 
       setSuccess('Password changed successfully!');
       setCurrentPassword('');
@@ -78,7 +80,7 @@ export default function Settings() {
       }, 2000);
     } catch (err: any) {
       console.error('Error changing password:', err);
-      setError(err.response?.data?.detail || 'Failed to change password');
+      setError(getErrorMessage(err, 'Failed to change password'));
     } finally {
       setLoading(false);
     }
@@ -104,12 +106,7 @@ export default function Settings() {
     setLoading(true);
 
     try {
-      await api.post('/users/change-email', null, {
-        params: {
-          new_email: newEmail,
-          password: emailPassword
-        }
-      });
+      await usersAPI.changeEmail(newEmail, emailPassword);
 
       setSuccess('Email changed successfully!');
       setCurrentEmail(newEmail);
@@ -123,7 +120,7 @@ export default function Settings() {
       }, 2000);
     } catch (err: any) {
       console.error('Error changing email:', err);
-      setError(err.response?.data?.detail || 'Failed to change email');
+      setError(getErrorMessage(err, 'Failed to change email'));
     } finally {
       setLoading(false);
     }
@@ -268,7 +265,7 @@ export default function Settings() {
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full px-4 py-3 pr-12 border-2 border-slate-200 rounded-xl focus:border-red-500 focus:outline-none transition-colors"
                     required
-                    minLength={6}
+                    minLength={8}
                   />
                   <button
                     type="button"
@@ -278,7 +275,7 @@ export default function Settings() {
                     {showNewPassword ? <EyeOff className="w-5 h-5 text-slate-500" /> : <Eye className="w-5 h-5 text-slate-500" />}
                   </button>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Minimum 6 characters</p>
+                <p className="text-xs text-slate-500 mt-1">Minimum 8 characters, with at least one letter and one digit</p>
               </div>
 
               <div>

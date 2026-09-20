@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { Package, Plus, TriangleAlert as AlertTriangle, TrendingDown, TrendingUp, X, CreditCard as Edit } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { inventoryAPI } from '../lib/api';
-import { useSchool } from '../hooks/useSchool';
+import { getErrorMessage, inventoryAPI } from '../lib/api';
 
 interface InventoryItem {
   id: number;
@@ -27,10 +26,10 @@ const emptyForm = {
   cost_per_unit: '',
 };
 
-const categories = ['All', 'Grains', 'Pulses', 'Oil', 'Vegetables', 'Spices', 'Other'];
+// Mirrors INVENTORY_CATEGORIES on the backend.
+const categories = ['All', 'Grains', 'Pulses', 'Oil', 'Vegetables', 'Spices', 'Dairy', 'Other'];
 
 const Inventory = () => {
-  const { schoolId } = useSchool();
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [filtered, setFiltered] = useState<InventoryItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -42,9 +41,10 @@ const Inventory = () => {
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
-    if (!schoolId) return;
+    // The backend scopes inventory by the caller's token, so this does not
+    // need to wait for the school lookup.
     fetchItems();
-  }, [schoolId]);
+  }, []);
 
   useEffect(() => {
     setFiltered(selectedCategory === 'All' ? items : items.filter((i) => i.category === selectedCategory));
@@ -67,7 +67,7 @@ const Inventory = () => {
       setError('');
     } catch (err: any) {
       console.error('Error fetching inventory:', err);
-      setError(err.response?.data?.detail || 'Failed to load inventory');
+      setError(getErrorMessage(err, 'Failed to load inventory'));
       setItems([]);
       setFiltered([]);
     } finally {
@@ -77,20 +77,43 @@ const Inventory = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!schoolId) return;
     setSaving(true);
     setError('');
 
+    const quantity = parseFloat(form.quantity);
+    const threshold = parseFloat(form.threshold);
+    const costPerUnit = form.cost_per_unit.trim() ? parseFloat(form.cost_per_unit) : null;
+
+    if (!form.item_name.trim()) {
+      setError('Item name is required');
+      setSaving(false);
+      return;
+    }
+    if (!Number.isFinite(quantity) || quantity < 0) {
+      setError('Quantity must be 0 or more');
+      setSaving(false);
+      return;
+    }
+    if (!Number.isFinite(threshold) || threshold <= 0) {
+      setError('Reorder threshold must be greater than 0');
+      setSaving(false);
+      return;
+    }
+    if (costPerUnit !== null && (!Number.isFinite(costPerUnit) || costPerUnit < 0)) {
+      setError('Cost per unit cannot be negative');
+      setSaving(false);
+      return;
+    }
+
     try {
       const payload = {
-        item_name: form.item_name,
+        item_name: form.item_name.trim(),
         category: form.category,
-        quantity: parseFloat(form.quantity) || 0,
+        quantity,
         unit: form.unit,
-        threshold: parseFloat(form.threshold) || 0,
-        supplier: form.supplier || null,
-        cost_per_unit: form.cost_per_unit ? parseFloat(form.cost_per_unit) : null,
-        school_id: schoolId,
+        threshold,
+        supplier: form.supplier.trim() || null,
+        cost_per_unit: costPerUnit,
       };
 
       if (editing) {
@@ -104,7 +127,7 @@ const Inventory = () => {
       setShowModal(false);
     } catch (err: any) {
       console.error('Error saving inventory item:', err);
-      setError(err.response?.data?.detail || 'Failed to save item');
+      setError(getErrorMessage(err, 'Failed to save item'));
     } finally {
       setSaving(false);
     }
@@ -131,7 +154,7 @@ const Inventory = () => {
       await fetchItems();
     } catch (err: any) {
       console.error('Error deleting inventory item:', err);
-      alert('Failed to delete: ' + (err.response?.data?.detail || err.message));
+      alert('Failed to delete: ' + getErrorMessage(err));
     }
   };
 
@@ -391,6 +414,7 @@ const Inventory = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={form.quantity}
                     onChange={(e) => setForm({ ...form, quantity: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
@@ -402,6 +426,7 @@ const Inventory = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0.01"
                     value={form.threshold}
                     onChange={(e) => setForm({ ...form, threshold: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
@@ -416,9 +441,12 @@ const Inventory = () => {
                     className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"
                   >
                     <option>kg</option>
-                    <option>litres</option>
                     <option>g</option>
+                    <option>litres</option>
+                    <option>ml</option>
                     <option>units</option>
+                    <option>nos</option>
+                    <option>packets</option>
                   </select>
                 </div>
               </div>
@@ -438,6 +466,7 @@ const Inventory = () => {
                   <input
                     type="number"
                     step="0.01"
+                    min="0"
                     value={form.cost_per_unit}
                     onChange={(e) => setForm({ ...form, cost_per_unit: e.target.value })}
                     className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-primary-500 focus:outline-none transition-colors"

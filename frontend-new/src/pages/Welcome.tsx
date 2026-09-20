@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Utensils, ShieldCheck, ChartBar as BarChart3, Camera, ArrowRight } from 'lucide-react';
+import { ShieldCheck, ChartBar as BarChart3, Camera, ArrowRight } from 'lucide-react';
 
 const features = [
   { icon: Camera, title: 'Face Recognition Attendance', desc: 'AI-powered automatic attendance tracking' },

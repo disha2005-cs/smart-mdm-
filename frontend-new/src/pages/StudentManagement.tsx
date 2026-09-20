@@ -1,23 +1,17 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { Users, ChevronRight, Calendar, CheckCircle, XCircle, ArrowLeft, Plus, X, Camera, Edit, Trash2 } from 'lucide-react';
-import { studentsAPI, attendanceAPI } from '../lib/api';
+import { attendanceAPI, serverUrl, studentsAPI } from '../lib/api';
 import { useSchool } from '../hooks/useSchool';
 import type { Student } from '../types';
 
-// Get API base URL without /api/v1 suffix for static files
-const API_BASE_URL = import.meta.env.VITE_API_URL?.replace('/api/v1', '') || 'http://localhost:8000';
-
-// Helper function to get photo URL (S3 or fallback to API endpoint)
+// Resolve a student's photo to a URL the browser can load.
+// photo_url is either an absolute S3 URL or a relative "/uploads/..." path;
+// serverUrl() handles both, and stays same-origin behind the nginx proxy.
 const getPhotoUrl = (student: Student) => {
-  if (student.photo_url) {
-    return student.photo_url;  // S3 URL
-  }
-  if (student.photo_path) {
-    return `${API_BASE_URL}/${student.photo_path}`;  // Old file path
-  }
-  return `${API_BASE_URL}/api/v1/students/${student.id}/photo`;  // Database endpoint
+  if (student.photo_url) return serverUrl(student.photo_url);
+  if (student.photo_path) return serverUrl(student.photo_path);
+  return serverUrl(`api/v1/students/${student.id}/photo`);
 };
 
 interface AttendanceRecord {
@@ -33,18 +27,24 @@ const emptyForm = {
   date_of_birth: '',
   gender: 'Male',
   grade: '1',
+  section: '',
   parent_name: '',
   parent_phone: '',
   photo: null as File | null,
 };
 
 const StudentManagement = () => {
-  const navigate = useNavigate();
   const { schoolId, loading: schoolLoading } = useSchool();
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
+  const [attendanceSummary, setAttendanceSummary] = useState<{
+    school_days: number;
+    present_days: number;
+    absent_days: number;
+    attendance_percentage: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Student | null>(null);
@@ -85,28 +85,28 @@ const StudentManagement = () => {
 
   const fetchStudentAttendance = async (studentId: number) => {
     try {
-      const response = await attendanceAPI.getStudentHistory(studentId);
-      
-      // Safely handle response with null checks
-      if (!response || !response.data || !Array.isArray(response.data)) {
+      const response = await attendanceAPI.getStudentHistory(studentId, 30);
+      const data = response?.data;
+
+      if (!data || !Array.isArray(data.records)) {
         setAttendanceRecords([]);
+        setAttendanceSummary(null);
         return;
       }
-      
-      // Get last 30 days
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-      
-      const recentRecords = response.data.filter((record: any) => {
-        if (!record.date) return false;
-        const recordDate = new Date(record.date);
-        return recordDate >= thirtyDaysAgo;
+
+      setAttendanceRecords(data.records);
+      // The rate comes from the server, which knows how many days the school
+      // actually ran - the client only ever sees this student's own rows.
+      setAttendanceSummary({
+        school_days: data.school_days ?? 0,
+        present_days: data.present_days ?? 0,
+        absent_days: data.absent_days ?? 0,
+        attendance_percentage: data.attendance_percentage ?? 0,
       });
-      
-      setAttendanceRecords(recentRecords);
     } catch (err) {
       console.error('Error fetching attendance:', err);
       setAttendanceRecords([]);
+      setAttendanceSummary(null);
     }
   };
 
@@ -142,6 +142,7 @@ const StudentManagement = () => {
       date_of_birth: student.date_of_birth || '',
       gender: student.gender || 'Male',
       grade: student.grade || '1',
+      section: student.section || '',
       parent_name: student.parent_name || '',
       parent_phone: student.parent_phone || '',
       photo: null,
@@ -175,11 +176,7 @@ const StudentManagement = () => {
     }
   };
 
-  const getAttendanceRate = () => {
-    if (attendanceRecords.length === 0) return 0;
-    const presentDays = attendanceRecords.filter(r => r.status === 'Present').length;
-    return Math.round((presentDays / attendanceRecords.length) * 100);
-  };
+  const getAttendanceRate = () => Math.round(attendanceSummary?.attendance_percentage ?? 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -194,14 +191,13 @@ const StudentManagement = () => {
       formData.append('date_of_birth', form.date_of_birth || '');
       formData.append('gender', form.gender || 'Male');
       formData.append('grade', form.grade || '1');
+      formData.append('section', form.section || '');
       formData.append('parent_name', form.parent_name || '');
       formData.append('parent_phone', form.parent_phone || '');
       formData.append('school_id', schoolId.toString());
 
-      if (!editing) {
-        const studentId = `STU-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        formData.append('student_id', studentId);
-      }
+      // The server issues the admission number so it is unique and sequential.
+      // The old client-side random ID could collide and surfaced as a 500.
 
       if (form.photo) {
         formData.append('photo', form.photo);
@@ -252,6 +248,18 @@ const StudentManagement = () => {
       reader.readAsDataURL(file);
     }
   };
+
+  // The students list is still loading - show a spinner rather than an
+  // empty grade list that looks like "no students".
+  if (loading || schoolLoading) {
+    return (
+      <Layout>
+        <div className="flex h-96 items-center justify-center">
+          <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary-500 border-t-transparent" />
+        </div>
+      </Layout>
+    );
+  }
 
   // Grade selection view
   if (!selectedGrade) {
@@ -459,6 +467,7 @@ const StudentManagement = () => {
                   <input
                     type="date"
                     value={form.date_of_birth}
+                    max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
@@ -489,6 +498,19 @@ const StudentManagement = () => {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Section <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.section}
+                    maxLength={2}
+                    placeholder="A"
+                    onChange={(e) => setForm({ ...form, section: e.target.value.toUpperCase() })}
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 uppercase transition-colors focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-5">
@@ -506,7 +528,13 @@ const StudentManagement = () => {
                   <input
                     type="tel"
                     value={form.parent_phone}
-                    onChange={(e) => setForm({ ...form, parent_phone: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="[6-9][0-9]{9}"
+                    title="10-digit Indian mobile number"
+                    onChange={(e) =>
+                      setForm({ ...form, parent_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })
+                    }
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
@@ -738,6 +766,7 @@ const StudentManagement = () => {
                   <input
                     type="date"
                     value={form.date_of_birth}
+                    max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
@@ -768,6 +797,19 @@ const StudentManagement = () => {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Section <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.section}
+                    maxLength={2}
+                    placeholder="A"
+                    onChange={(e) => setForm({ ...form, section: e.target.value.toUpperCase() })}
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 uppercase transition-colors focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-5">
@@ -785,7 +827,13 @@ const StudentManagement = () => {
                   <input
                     type="tel"
                     value={form.parent_phone}
-                    onChange={(e) => setForm({ ...form, parent_phone: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="[6-9][0-9]{9}"
+                    title="10-digit Indian mobile number"
+                    onChange={(e) =>
+                      setForm({ ...form, parent_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })
+                    }
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
@@ -821,8 +869,9 @@ const StudentManagement = () => {
   // Student detail view with attendance
   if (selectedStudent) {
     const attendanceRate = getAttendanceRate();
-    const presentDays = attendanceRecords.filter(r => r.status === 'Present').length;
-    const absentDays = attendanceRecords.filter(r => r.status === 'Absent').length;
+    const presentDays = attendanceSummary?.present_days ?? 0;
+    const absentDays = attendanceSummary?.absent_days ?? 0;
+    const schoolDays = attendanceSummary?.school_days ?? 0;
 
     return (
       <>
@@ -902,8 +951,8 @@ const StudentManagement = () => {
               <p className="text-sm opacity-80">Attendance Rate</p>
             </div>
             <div className="bg-white rounded-xl p-5 border border-slate-200">
-              <p className="text-sm text-slate-500 mb-1">Total Days</p>
-              <p className="text-3xl font-bold text-slate-800">{attendanceRecords.length}</p>
+              <p className="text-sm text-slate-500 mb-1">School Days</p>
+              <p className="text-3xl font-bold text-slate-800">{schoolDays}</p>
             </div>
             <div className="bg-white rounded-xl p-5 border border-success-200 bg-success-50">
               <p className="text-sm text-success-600 mb-1">Present</p>
@@ -926,7 +975,7 @@ const StudentManagement = () => {
                   {attendanceRecords.slice(0, 30).map((record) => (
                     <div key={record.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50">
                       <div className="flex items-center gap-3">
-                        {record.status === 'Present' ? (
+                        {record.status === 'PRESENT' ? (
                           <CheckCircle className="w-5 h-5 text-success-600" />
                         ) : (
                           <XCircle className="w-5 h-5 text-danger-600" />
@@ -944,7 +993,7 @@ const StudentManagement = () => {
                         </div>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        record.status === 'Present' 
+                        record.status === 'PRESENT' 
                           ? 'bg-success-100 text-success-700' 
                           : 'bg-danger-100 text-danger-700'
                       }`}>
@@ -1070,6 +1119,7 @@ const StudentManagement = () => {
                   <input
                     type="date"
                     value={form.date_of_birth}
+                    max={new Date().toISOString().split('T')[0]}
                     onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })}
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
@@ -1100,6 +1150,19 @@ const StudentManagement = () => {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-slate-700">
+                    Section <span className="font-normal text-slate-400">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.section}
+                    maxLength={2}
+                    placeholder="A"
+                    onChange={(e) => setForm({ ...form, section: e.target.value.toUpperCase() })}
+                    className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 uppercase transition-colors focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-5">
@@ -1117,7 +1180,13 @@ const StudentManagement = () => {
                   <input
                     type="tel"
                     value={form.parent_phone}
-                    onChange={(e) => setForm({ ...form, parent_phone: e.target.value })}
+                    inputMode="numeric"
+                    maxLength={10}
+                    pattern="[6-9][0-9]{9}"
+                    title="10-digit Indian mobile number"
+                    onChange={(e) =>
+                      setForm({ ...form, parent_phone: e.target.value.replace(/\D/g, '').slice(0, 10) })
+                    }
                     className="w-full rounded-xl border-2 border-slate-200 px-4 py-3 transition-colors focus:border-primary-500 focus:outline-none"
                   />
                 </div>
