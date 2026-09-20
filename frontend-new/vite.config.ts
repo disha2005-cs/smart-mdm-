@@ -1,41 +1,45 @@
-import { defineConfig, loadEnv } from 'vite'
-import react from '@vitejs/plugin-react'
+import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 
 // https://vite.dev/config/
-export default defineConfig(({ mode }) => {
-  // Load every env var (not just VITE_-prefixed) so we can bridge the
-  // project's NEXT_PUBLIC_* Supabase credentials to the VITE_* names the
-  // app reads. Vite normally only exposes VITE_-prefixed vars to the client.
-  const env = loadEnv(mode, process.cwd(), '')
+export default defineConfig({
+  plugins: [react()],
 
-  const supabaseUrl =
-    env.VITE_SUPABASE_URL ?? env.NEXT_PUBLIC_SUPABASE_URL ?? env.SUPABASE_URL ?? ''
-  const supabaseAnonKey =
-    env.VITE_SUPABASE_ANON_KEY ??
-    env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-    env.SUPABASE_ANON_KEY ??
-    ''
+  // Absolute asset paths by default: a deep link like /dashboard is served
+  // index.html by nginx, and relative paths would resolve against /dashboard/
+  // and 404. The Electron build opens index.html over file://, where only
+  // relative paths work, so it sets ELECTRON_BUILD=1.
+  base: process.env.ELECTRON_BUILD ? './' : '/',
 
-  return {
-    plugins: [react()],
-    server: {
-      host: true,
-      allowedHosts: [
-        'hopeless-polly-unexpectably.ngrok-free.dev',
-        '.ngrok-free.dev',
-        '.ngrok.io',
-        '.ngrok.app',
-      ],
-      proxy: {
-        '/api': {
-          target: 'http://localhost:8000',
-          changeOrigin: true,
+  server: {
+    host: true,
+    allowedHosts: ['.ngrok-free.dev', '.ngrok.io', '.ngrok.app'],
+    proxy: {
+      // Lets `npm run dev` talk to a local backend without CORS.
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+      '/uploads': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
+  },
+
+  build: {
+    // Recharts and React dominate the bundle; splitting them out keeps the
+    // main chunk small enough to parse quickly on low-end school hardware,
+    // and lets the browser cache them across deploys.
+    rolldownOptions: {
+      output: {
+        advancedChunks: {
+          groups: [
+            { name: 'charts', test: /node_modules[/\\]recharts/ },
+            { name: 'react', test: /node_modules[/\\](react|react-dom|react-router)/ },
+          ],
         },
       },
     },
-    define: {
-      'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(supabaseUrl),
-      'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(supabaseAnonKey),
-    },
-  }
-})
+  },
+});

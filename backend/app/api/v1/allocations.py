@@ -310,7 +310,8 @@ def delete_allocation(
 
     if allocation.status in (AllocationStatus.APPROVED, AllocationStatus.DELIVERED):
         raise bad_request(
-            f"A {allocation.status.value.lower()} allocation has already updated the school's stock and cannot be deleted."
+            f"This allocation is {allocation.status.value.lower()} and has already updated the school's stock, "
+            "so it cannot be deleted."
         )
 
     db.delete(allocation)

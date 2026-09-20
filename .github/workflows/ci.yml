@@ -196,15 +196,18 @@ jobs:
         run: |
           # Replace the placeholder lines rather than appending duplicates, so
           # the values do not depend on which occurrence Compose keeps.
+          # CI has no managed database, so it points at the bundled one.
           secret=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
           cp .env.example .env
+          sed -i "s|^DATABASE_URL=.*|DATABASE_URL=postgresql://mdm:mdm_local_password@db:5432/mdm|" .env
           sed -i "s|^JWT_SECRET_KEY=.*|JWT_SECRET_KEY=$secret|" .env
           sed -i "s|^SEED_ADMIN_PASSWORD=.*|SEED_ADMIN_PASSWORD=ci-admin-password-1|" .env
+          grep -qx "DATABASE_URL=postgresql://mdm:mdm_local_password@db:5432/mdm" .env || { echo "::error::DATABASE_URL not written"; exit 1; }
           grep -qE "^JWT_SECRET_KEY=.{32,}$" .env || { echo "::error::JWT secret not written"; exit 1; }
           grep -qx "SEED_ADMIN_PASSWORD=ci-admin-password-1" .env || { echo "::error::seed password not written"; exit 1; }
 
       - name: Build and start the whole stack
-        run: docker compose up -d --build --wait --wait-timeout 900
+        run: docker compose --profile localdb up -d --build --wait --wait-timeout 900
 
       - name: Backend health
         run: |
@@ -244,8 +247,8 @@ jobs:
 
       - name: Dump logs on failure
         if: failure()
-        run: docker compose logs --no-color --tail 200
+        run: docker compose --profile localdb logs --no-color --tail 200
 
       - name: Tear down
         if: always()
-        run: docker compose down -v
+        run: docker compose --profile localdb down -v

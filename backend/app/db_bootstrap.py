@@ -6,17 +6,51 @@ Two jobs:
 1. Create any missing tables, so a brand-new database (the one Docker Compose
    brings up, for instance) is usable without a manual migration step.
 2. Apply the handful of column/constraint changes that came after the original
-   migrations. The alembic history in this repo has diverged into several
-   heads, so a plain ``alembic upgrade head`` is not usable.
+   migrations.
+
+This replaced Alembic, whose history had diverged into three heads and could
+no longer be applied. Schema changes go here.
 
 Everything here is safe to run on every boot: each statement either already
 holds or is a no-op.
 """
+import time
+
 from loguru import logger
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import OperationalError
 
 import app.models  # noqa: F401 - registers every model on Base.metadata
 from app.database import Base, engine
+
+
+def wait_for_database(attempts: int = 30, delay: float = 2.0) -> bool:
+    """
+    Block until the database accepts a connection.
+
+    Needed in two situations: a container starting alongside its database, and
+    a serverless Postgres (Neon and similar) that has scaled to zero and takes
+    a few seconds to wake up. Returns False if it never came up.
+    """
+    last_error = None
+    for attempt in range(1, attempts + 1):
+        try:
+            with engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+            if attempt > 1:
+                logger.info(f"Database reachable after {attempt} attempt(s)")
+            return True
+        except OperationalError as exc:
+            last_error = exc
+            if attempt == 1:
+                logger.info("Waiting for the database to accept connections...")
+            time.sleep(delay)
+        except Exception as exc:  # noqa: BLE001 - anything else is not retryable
+            logger.error(f"Database connection failed: {exc}")
+            return False
+
+    logger.error(f"Database unreachable after {attempts} attempts: {last_error}")
+    return False
 
 # Plain DDL rather than migrations so this stays readable and re-runnable.
 STATEMENTS = [
@@ -100,9 +134,13 @@ def create_missing_tables() -> None:
         logger.info(f"Created {len(created)} table(s): {', '.join(sorted(created))}")
 
 
-def sync_schema() -> None:
+def sync_schema(wait: bool = True) -> None:
     """Apply pending schema tweaks. Never raises - startup must not be blocked."""
     try:
+        if wait and not wait_for_database():
+            logger.error("Skipping schema sync: the database is not reachable")
+            return
+
         create_missing_tables()
 
         with engine.begin() as connection:

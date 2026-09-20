@@ -12,7 +12,7 @@
     "serve": "npx http-server dist -p 5173 --host 0.0.0.0",
     "electron": "electron .",
     "electron:dev": "concurrently \"cross-env BROWSER=none npm run dev\" \"wait-on http://localhost:5173 && cross-env ELECTRON_START_URL=http://localhost:5173 electron .\"",
-    "electron:build": "npm run build && electron-builder",
+    "electron:build": "cross-env ELECTRON_BUILD=1 npm run build && electron-builder",
     "start": "npm run electron:dev"
   },
   "dependencies": {

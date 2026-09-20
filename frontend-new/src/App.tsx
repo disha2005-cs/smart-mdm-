@@ -1,4 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  HashRouter,
+  Navigate,
+  Route,
+  Routes,
+} from 'react-router-dom';
 import { useState } from 'react';
 import Welcome from './pages/Welcome';
 import PortalSelection from './pages/PortalSelection';
@@ -16,6 +22,14 @@ import UsersRoles from './pages/UsersRoles';
 import Settings from './pages/Settings';
 import Meals from './pages/Meals';
 import RoleProtectedRoute from './components/RoleProtectedRoute';
+
+// BrowserRouter reads window.location.pathname, which under Electron's
+// file:// protocol is the path to index.html and matches no route. Hash
+// routing is the only thing that works there; the web build is unaffected.
+const Router =
+  typeof window !== 'undefined' && window.location.protocol === 'file:'
+    ? HashRouter
+    : BrowserRouter;
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(

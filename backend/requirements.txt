@@ -18,7 +18,6 @@ python-multipart==0.0.32
 
 # --- Database --------------------------------------------------------------
 SQLAlchemy==2.0.51
-alembic==1.18.5
 psycopg[binary]==3.3.6
 
 # --- Authentication & security ---------------------------------------------

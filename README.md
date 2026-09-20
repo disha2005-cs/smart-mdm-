@@ -69,31 +69,64 @@ has no price for, and compares the requirement against stock before letting you 
 
 ## Quick start with Docker
 
-**Requirements:** Docker Engine 20.10+ with the Compose plugin (any recent Docker Desktop).
+**Requirements:** Docker Engine 20.10+ with the Compose plugin (any recent Docker Desktop),
+and a PostgreSQL database.
 
 ```bash
 git clone https://github.com/disha2005-cs/smart-mdm-.git
 cd smart-mdm-
 
 cp .env.example .env
-# Set JWT_SECRET_KEY in .env - it is the only required value:
-#   python -c "import secrets; print(secrets.token_urlsafe(48))"
+```
 
+Set two values in `.env`:
+
+```env
+# Your Postgres connection string (Neon, RDS, Supabase, a local server, ...)
+DATABASE_URL=postgresql://user:password@your-host.neon.tech/neondb?sslmode=require
+
+# Generate with: python -c "import secrets; print(secrets.token_urlsafe(48))"
+JWT_SECRET_KEY=
+```
+
+Then:
+
+```bash
 docker compose up --build
 ```
 
-That one command builds and starts all three services — PostgreSQL, the API and the web UI —
-creates the database schema, and creates the first administrator.
+That one command builds and starts the API and the web UI, waits for the database, creates
+any missing tables, and adds the first administrator if the database has none.
 
-Then open **<http://localhost:8080>** and sign in through the **Government** portal:
+Open **<http://localhost:8080>**.
+
+### No database of your own?
+
+A PostgreSQL container is bundled. Use this `DATABASE_URL` instead:
+
+```env
+DATABASE_URL=postgresql://mdm:mdm_local_password@db:5432/mdm
+```
+
+and start it alongside the app:
+
+```bash
+docker compose --profile localdb up --build
+```
+
+### Signing in
+
+If your database already has a government administrator, use those credentials.
+
+On a fresh database one is created for you, from `.env`:
 
 | | |
 |---|---|
 | Employee ID | `GOV-001` |
 | Password | `admin123` |
 
-Change that password from **Settings** straight away, or set `SEED_ADMIN_PASSWORD` in `.env`
-before the first `up`.
+Change it from **Settings** straight away, or set `SEED_ADMIN_PASSWORD` before the first run.
+The seed step never overwrites an existing administrator.
 
 ### First run takes a while
 
@@ -101,23 +134,24 @@ The backend image bakes in the ~300 MB face-recognition model so the first atten
 is not a multi-minute stall. Expect the initial build to take several minutes; later starts
 are fast.
 
-Watch it come up with:
-
 ```bash
-docker compose ps           # all three should report healthy
-docker compose logs -f backend
+docker compose ps                 # both services should report healthy
+docker compose logs -f backend    # follow startup
 ```
 
 ### Everyday commands
 
 ```bash
-docker compose up -d                 # start in the background
-docker compose down                  # stop, keep the data
-docker compose down -v               # stop and wipe the database and uploads
-docker compose logs -f backend       # follow the API logs
-docker compose exec backend python seed.py     # re-run the admin bootstrap
-docker compose build --no-cache backend        # force a clean rebuild
+docker compose up -d                            # start in the background
+docker compose down                             # stop
+docker compose down -v                          # stop and wipe volumes (uploads, model cache)
+docker compose logs -f backend                  # follow the API logs
+docker compose exec backend python seed.py      # re-run the admin bootstrap
+docker compose build --no-cache backend         # force a clean rebuild
 ```
+
+`docker compose down -v` removes the uploads and model volumes. It does **not** touch a
+managed database — only the bundled `localdb` one.
 
 ### What runs where
 
@@ -125,19 +159,11 @@ docker compose build --no-cache backend        # force a clean rebuild
 |---|---|---|
 | `frontend` | <http://localhost:8080> | React UI, served by nginx |
 | `backend` | <http://localhost:8000/docs> | FastAPI + interactive API docs |
-| `db` | not published | PostgreSQL 16 |
+| `db` | <http://localhost:5432> | PostgreSQL 16, only with `--profile localdb` |
 
 The browser only ever talks to port 8080: nginx reverse-proxies `/api` and `/uploads` through
 to the backend. That means same-origin requests and no CORS configuration to get wrong. Port
 8000 is published purely so you can reach `/docs` and call the API directly.
-
-### Using a managed database instead
-
-Leave the bundled Postgres out of it by setting `DATABASE_URL` in `.env`:
-
-```env
-DATABASE_URL=postgresql://user:password@your-host.neon.tech/neondb?sslmode=require
-```
 
 ---
 
@@ -191,15 +217,15 @@ npm run preview    # serve the production build locally
 
 ## Configuration
 
-Every value has a sensible default except `JWT_SECRET_KEY`.
+`DATABASE_URL` and `JWT_SECRET_KEY` are required; everything else has a usable default.
 
 ### Root `.env` — used by Docker Compose
 
 | Variable | Default | Notes |
 |---|---|---|
+| `DATABASE_URL` | — | **Required.** Any PostgreSQL connection string |
 | `JWT_SECRET_KEY` | — | **Required.** Minimum 32 characters; the app refuses to start otherwise |
-| `DATABASE_URL` | bundled Postgres | Set to use a managed database instead |
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | `mdm` / `mdm_local_password` / `mdm` | Credentials for the bundled Postgres |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` / `POSTGRES_PORT` | `mdm` / `mdm_local_password` / `mdm` / `5432` | Bundled Postgres only (`--profile localdb`) |
 | `ACCESS_TOKEN_EXPIRE_MINUTES` | `1440` | Login session length |
 | `SEED_ADMIN_EMPLOYEE_ID` | `GOV-001` | First administrator, created only when none exists |
 | `SEED_ADMIN_EMAIL` | `admin@pmposhan.gov.in` | |
@@ -250,8 +276,9 @@ attendance row per student — each inside its own savepoint, so one conflict ca
 students already marked from the same frame.
 
 **Schema.** Tables are created and reconciled at startup by `app/db_bootstrap.py`, which is
-idempotent. The Alembic history in `backend/alembic/` has diverged into several heads and is
-kept only for reference; it is not used to migrate.
+idempotent and safe to run against both an empty and an established database. It waits for
+the database first, so a serverless Postgres that has scaled to zero is given time to wake.
+Schema changes belong in that file.
 
 ---
 
@@ -289,6 +316,7 @@ Authenticate with `Authorization: Bearer <token>` from the login response.
 │   ├── requirements.txt        Pinned, verified versions
 │   ├── main.py                 App factory, CORS, error handlers, routers
 │   ├── seed.py                 Creates the first administrator
+│   ├── configure_s3_bucket.py  One-off: opens an S3 bucket for photo reads
 │   └── app/
 │       ├── api/v1/             One module per resource
 │       ├── core/
